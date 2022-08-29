@@ -3,9 +3,9 @@
 #include <deque>
 #include <fstream>
 #include <string>
-#include "Config.h"
 #include "opencv2/core.hpp"
 #include "opencv2/imgproc.hpp"
+#include "eigen3/Eigen/Dense"
 
 #include <pangolin/display/display.h>
 #include <pangolin/gl/gl.h>
@@ -18,14 +18,13 @@
 #include <pangolin/utils/range.h>
 
 #include <functional>
-#include <stdio.h>
 #include <iostream>
-
-
+#include <stdio.h>
+#include <stdlib.h>
 
 void FileRead(std::deque<std::string>& v, std::ifstream &fin);
 void MakeTextFile(std::ofstream& fout, const int& imageNum);
-void GTPoseRead(std::vector<cv::Vec3f>& v, std::ifstream& fin);
+void GTPoseRead(std::vector<Eigen::Vector3d>& v, std::ifstream& fin);
 
 
 namespace Viewer
@@ -50,4 +49,4 @@ namespace Viewer
             // circle is before, rectangle is after
             cv::Mat cv_draw_features(cv::Mat src, std::vector<cv::Point2f>& beforePoints, std::vector<cv::Point2f> afterPoints);
     };
-}
+}//namespace Viewer

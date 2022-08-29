@@ -1,5 +1,7 @@
 #include "Init.h"
 
+#define numofimage 4540
+
 void FileRead(std::deque<std::string>& v, std::ifstream &fin)
 {
 	std::string line;
@@ -24,44 +26,44 @@ void MakeTextFile(std::ofstream& fout, const int& imageNum)
 }
 
 
-void GTPoseRead(std::vector<cv::Vec3f>& v, std::ifstream& fin)
+void GTPoseRead(std::vector<Eigen::Vector3d>& v, std::ifstream& fin)
 {
 	char buf[100];
+    Eigen::Vector3d temp;
 	int numOfGT = 0;
-	cv::Vec3f temp;
-	double tempd;
+
+	double tempX, tempY, tempZ;
 	while(true)
 	{	
-		int num = 0;
-
-		for(int j = 0; j< temp.rows; j++)
+		for(int i = 0; i< 12; i++)
 		{
-			for(int i = 0; i< temp.cols; i++)
+			if(i == 3)
 			{
-				if(num == 3)
-				{
-					fin.getline(buf, 100, ' ');
-					tempd = atof(buf);
-					temp[0] = tempd;
-				}else if(num == 7)
-				{
-					fin.getline(buf, 100, ' ');
-					tempd = atof(buf);
-					temp[1] = tempd;
-				}
-				else if(num == 11)
-				{
-					fin.getline(buf, 100, '\n');
-					tempd = atof(buf);
-					temp[2] = tempd;
-					break;
-				}
-				num++;
+				fin.getline(buf, 100, ' ');
+				tempX = atof(buf);
+				temp[0] = tempX;
 			}
+            else if(i == 7)
+			{
+				fin.getline(buf, 100, ' ');
+                tempY = atof(buf);
+				temp[1] = tempY;
+			}
+			else if(i == 11)
+			{
+				fin.getline(buf, 100, '\n');
+				tempZ = atof(buf);
+				temp[2] = tempZ;
+				break;
+			}
+            else
+            {
+                fin.getline(buf,100, ' ');
+            }
 		}
 		numOfGT++;
 		v.emplace_back(std::move(temp));
-		if(numOfGT == IMAGENUM) break;
+		if(numOfGT == numofimage) break;
 		// if(fin.eof()) break;
 	}
 }
