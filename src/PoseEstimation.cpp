@@ -7,7 +7,7 @@
 mvo::StrctureFromMotion::StrctureFromMotion() 
 : mEssential{cv::Mat()}, mRotation{cv::Mat()}, mTranslation{cv::Mat()}, mCombineRt{cv::Mat()}{}
 
-bool mvo::StrctureFromMotion::CreateEssentialMatrix(const std::vector<cv::Vec2f>& pts1, const std::vector<cv::Vec2f>& pts2, const cv::InputArray& K)
+bool mvo::StrctureFromMotion::CreateEssentialMatrix(const std::vector<cv::Point2f>& pts1, const std::vector<cv::Point2f>& pts2, const cv::InputArray& K)
 {
     mEssential = cv::findEssentialMat(pts1, pts2, K, cv::RANSAC, 0.999, 1.0, cv::noArray());
     if (mEssential.empty())
@@ -18,7 +18,7 @@ bool mvo::StrctureFromMotion::CreateEssentialMatrix(const std::vector<cv::Vec2f>
     return true;
 }
 
-bool mvo::StrctureFromMotion::GetEssentialRt(const cv::InputArray& E, const cv::InputArray& K, const std::vector<cv::Vec2f>& pts1, const std::vector<cv::Vec2f>& pts2)
+bool mvo::StrctureFromMotion::GetEssentialRt(const cv::InputArray& E, const cv::InputArray& K, const std::vector<cv::Point2f>& pts1, const std::vector<cv::Point2f>& pts2)
 {
     cv::recoverPose(E, pts1, pts2, K, mRotation, mTranslation);
     if (mRotation.empty() || mTranslation.empty())
@@ -39,6 +39,24 @@ bool mvo::StrctureFromMotion::CombineRt()
     {
         std::cerr << "failed Combine Rotation Translation Matrix" << std::endl;
         return false;
+    }
+    return true;
+}
+
+mvo::PoseEstimation::PoseEstimation()
+{
+    rvec = cv::Mat();
+    tvec = cv::Mat();
+}
+bool mvo::PoseEstimation::solvePnP(const std::vector<cv::Vec3f>& objectPoints,
+                    const std::vector<cv::Vec2f>& imagePoints,
+                    const cv::Mat cameraIntrinsic,
+                    cv::OutputArray rvec,
+                    cv::OutputArray tvec)
+{
+    if(!cv::solvePnPRansac(objectPoints, imagePoints, cameraIntrinsic, cv::Mat(), rvec, tvec))
+    {
+        std::cerr <<"Can't solve PnP" << std::endl;
     }
     return true;
 }

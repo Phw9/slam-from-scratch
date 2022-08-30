@@ -10,8 +10,8 @@ namespace mvo
     public:
         StrctureFromMotion();
 
-        bool CreateEssentialMatrix(const std::vector<cv::Vec2f>& pts1, const std::vector<cv::Vec2f>& pts2, const cv::InputArray& K);
-        bool GetEssentialRt(const cv::InputArray& E, const cv::InputArray& K, const std::vector<cv::Vec2f>& pts1, const std::vector<cv::Vec2f>& pts2);
+        bool CreateEssentialMatrix(const std::vector<cv::Point2f>& pts1, const std::vector<cv::Point2f>& pts2, const cv::InputArray& K);
+        bool GetEssentialRt(const cv::InputArray& E, const cv::InputArray& K, const std::vector<cv::Point2f>& pts1, const std::vector<cv::Point2f>& pts2);
         bool CombineRt();
     public:
         cv::Mat mEssential;
@@ -19,5 +19,23 @@ namespace mvo
         cv::Mat mTranslation;
         cv::Mat mCombineRt;
     };
-}//namespace mvo
+
+    class PoseEstimation
+    {
+    public:
+        PoseEstimation();
+
+    public:
+        bool solvePnP(const std::vector<cv::Vec3f>& objectPoints,
+                    const std::vector<cv::Vec2f>& imagePoints,
+                    const cv::Mat cameraIntrinsic,
+                    cv::OutputArray rvec,
+                    cv::OutputArray tvec);
+
+    public:
+        cv::Vec3f rvec;
+        cv::Vec3f tvec;
+
+    };
+} //namespace mvo
 

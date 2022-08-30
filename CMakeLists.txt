@@ -47,6 +47,7 @@ add_executable(mvo
 
 target_link_libraries(mvo 
 		  ${PROJECT_SOURCE_DIR}/src/Feature.cpp
+        ${PROJECT_SOURCE_DIR}/src/KeyFrame.cpp
 		  ${PROJECT_SOURCE_DIR}/src/PoseEstimation.cpp
 )
 

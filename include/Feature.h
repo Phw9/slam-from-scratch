@@ -15,14 +15,14 @@ namespace mvo
         
         bool CornerFAST(const cv::Mat& src);
         bool GoodFeaturesToTrack(const cv::Mat& src);
-        bool OpticalFlowPyrLK(const cv::Mat& src1, const cv::Mat& src2, std::vector<cv::Vec2f>& pts1);
+        bool OpticalFlowPyrLK(const cv::Mat& src1, const cv::Mat& src2, mvo::Feature& next);
 
         std::vector<uchar> mstatus;
         std::vector<float> merr;
-        std::vector<cv::Vec2f> mfeatures;
+        std::vector<cv::Point2f> mfeatures;
         cv::Mat mdesc;
         std::vector<cv::KeyPoint> mfastKeyPoints;
     };
 }//namespace mvo
 
-bool ManageTrackPoints(const mvo::Feature& present, mvo::Feature before);
+bool ManageTrackPoints(const mvo::Feature& present, mvo::Feature& before);

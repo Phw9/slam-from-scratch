@@ -2,8 +2,9 @@
 #include "Feature.h"
 #include "Init.h"
 #include "PoseEstimation.h"
+#include "KeyFrame.h"
 #include "opencv2/imgcodecs.hpp"
-
+#include "opencv2/highgui.hpp"
 
 
 int main()
@@ -21,6 +22,7 @@ int main()
 		return 0;
 	}
 	std::deque<std::string> readImageName;
+	cv::Mat img;
 	int imageCurNum = 0;
 	MakeTextFile(rawData, IMAGENUM);
 	FileRead(readImageName, read);
@@ -28,58 +30,155 @@ int main()
 
 	mvo::Feature detector;
 	mvo::Feature trackerA1, trackerA2, trackerB1, trackerB2;
-	std::vector<mvo::Feature> localATrackPoints;
-	int lATP = 0;
-	std::vector<mvo::Feature> localBTrackPoints;
-	int lBTP = 0;
+	std::vector<mvo::Feature> localTrackPointsA;
+	localTrackPointsA.reserve(500);
+	int lTPA = 0;
+	std::vector<mvo::Feature> localTrackPointsB;
+	localTrackPointsB.reserve(500);
+	int lTPB = 0;
 
-	
-	mvo::StrctureFromMotion getEssential;
-	
+	mvo::StrctureFromMotion getEssential1, getEssential2;
+	mvo::PoseEstimation getPose;
+
+	// mvo::KeyFrame keyA, keyB;
+	// std::vector<mvo::KeyFrame> globalLandMark;
+	// int gLM = 0;
+
 	std::vector<Eigen::Vector3f> globalRvec;
 	std::vector<Eigen::Vector3f> globalTvec;
 	int gRTA = 0;
 	int gRTB = 0;
+	
 
-	while(imageCurNum < ESSENTIALFRAME+10)
+	// Viewer::my_visualize pangolinViewer=Viewer::my_visualize(WINDOWWIDTH, WINDOWHEIGHT);
+    // pangolinViewer.initialize();
+    // pangolin::OpenGlRenderState s_cam(
+    // pangolin::ProjectionMatrix(WINDOWWIDTH, WINDOWHEIGHT, VIEWPOINTF, VIEWPOINTF, 512, 389, 0.1, 1000),
+    // pangolin::ModelViewLookAt(VIEWPOINTX, VIEWPOINTY, VIEWPOINTZ, 0, 0, 0, 0.0, -1.0, 0.0));
+    // pangolin::View &d_cam = pangolin::CreateDisplay()
+    //                             .SetBounds(0.0, 1.0, pangolin::Attach::Pix(175), 1.0, -pangolinViewer.window_ratio)
+    //                             .SetHandler(new pangolin::Handler3D(s_cam));
+
+	while(true)
 	{
-		cv::Mat img;
-		img = cv::imread(readImageName.at(imageCurNum), cv::ImreadModes::IMREAD_UNCHANGED);
-		if (img.empty())
+		while(imageCurNum < ESSENTIALFRAME)
 		{
-			std::cerr << "frame upload failed" << std::endl;
-		}
-		imageCurNum++;
-		if(imageCurNum == 1)
-		{
-			if(!trackerA1.GoodFeaturesToTrack(img))
+			
+			img = cv::imread(readImageName.at(imageCurNum), 
+								cv::ImreadModes::IMREAD_UNCHANGED);
+			std::cout << imageCurNum << std::endl;
+			if (img.empty())
 			{
-				std::cout << "new tracker" << std::endl;
+				std::cerr << "frame upload failed" << std::endl;
 			}
-		}
-		else if(imageCurNum == ESSENTIALFRAME + 10)
-		{
-			// getEssential.CreateEssentialMatrix(localATrackPoints[gRTA].mfeatures, localATrackPoints[gRTA+lATP-1].mfeatures, intrinsicK);
-			// getEssential.GetEssentialRt(getEssential.mEssential, intrinsicK,
-			// 							localATrackPoints[gRTA].mfeatures, localATrackPoints[gRTA+lATP-1].mfeatures);
-			// std::cout << "getEssential.mTranslation: " << getEssential.mTranslation << std:: endl;
 
-		}else
-		{
-			localATrackPoints[gRTA+lATP].OpticalFlowPyrLK(cv::imread(readImageName.at(imageCurNum-2), cv::ImreadModes::IMREAD_UNCHANGED), img,
-													localATrackPoints[gRTA+lATP+1].mfeatures);
-			// for(int i = 0; i < lATP; i++)
-			// {
-			// 	ManageTrackPoints(localATrackPoints[gRTA+lATP],localATrackPoints[gRTA+i]);
-			// 	std::cout << "i: " << i << " ";
-			// }
-			// std::cout << std::endl;
-			// std::cout << "lATP: " << lATP << std::endl;
-			// lATP++;
-		}
-	}// 2view SFM, get Essential
-	lATP = 0;
-	localATrackPoints.clear();
+			if(imageCurNum == 0)	// feature extract
+			{
+				if(!trackerA1.GoodFeaturesToTrack(img))
+				{	
+					std::cout << "new tracker" << std::endl;
+				}
+				std::cout << imageCurNum << std::endl;
+				localTrackPointsA.emplace_back(std::move(trackerA1));
+			}	
+			else if(imageCurNum == ESSENTIALFRAME-1)	// 2-viewSFM
+			{
+				std::cout << imageCurNum << std::endl;
+				getEssential1.CreateEssentialMatrix(localTrackPointsA[gRTA+lTPA].mfeatures, localTrackPointsA[gRTA].mfeatures, intrinsicK);
+				getEssential1.GetEssentialRt(getEssential1.mEssential, intrinsicK,
+											localTrackPointsA[gRTA].mfeatures, localTrackPointsA[gRTA+lTPA-1].mfeatures);
+				gRTA = imageCurNum;											
+			}
+			else	// tracking
+			{
+				std::cout << imageCurNum << std::endl;
+				localTrackPointsA[gRTA+lTPA].OpticalFlowPyrLK(cv::imread(readImageName.at(imageCurNum-1), 
+													cv::ImreadModes::IMREAD_UNCHANGED), img, trackerA1);
+				localTrackPointsA.emplace_back(std::move(trackerA1));
+				
+				// cv::cvtColor(img, img, cv::ColorConversionCodes::COLOR_GRAY2BGR);
+				// img = pangolinViewer.cv_draw_features(img, localTrackPointsA.at(gRTA+lTPA).mfeatures, localTrackPointsA.at(gRTA+lTPA+1).mfeatures);
+				
+				for(int i = 0; i < lTPA; i++)
+				{
+					ManageTrackPoints(localTrackPointsA.at(gRTA+lTPA+1), localTrackPointsA.at(gRTA+i));
+					std::cout << "i: " << i << " ";
+				}
+				std::cout << std::endl;
+				std::cout << "lTPA: " << lTPA << std::endl;
+				lTPA++;
+			}
+			imageCurNum++;
+			cv::imshow("img", img);
+			if(cv::waitKey(0) == 27) break; // ESC key
+		} // 2view SFM, get Essential
+
+		// while(ESSENTIALFRAME < imageCurNum < 2*ESSENTIALFRAME)
+		// {
+		// 	img = cv::imread(readImageName.at(imageCurNum), 
+		// 						cv::ImreadModes::IMREAD_UNCHANGED);
+			
+		// 	if (img.empty())
+		// 	{
+		// 		std::cerr << "frame upload failed" << std::endl;
+		// 	}
+
+		// 	if(imageCurNum == 0)	// feature extract
+		// 	{
+		// 		if(!trackerA1.GoodFeaturesToTrack(img))
+		// 		{	
+		// 			std::cout << "new tracker" << std::endl;
+		// 		}
+		// 		localTrackPointsA.emplace_back(std::move(trackerA1));
+		// 	}	
+		// 	else if(imageCurNum == ESSENTIALFRAME-1)	// 2-viewSFM
+		// 	{
+		// 		getEssential2.CreateEssentialMatrix(localTrackPointsA[gRTA+lTPA].mfeatures, localTrackPointsA[gRTA].mfeatures, intrinsicK);
+		// 		getEssential2.GetEssentialRt(getEssential1.mEssential, intrinsicK,
+		// 									localTrackPointsA[gRTA].mfeatures, localTrackPointsA[gRTA+lTPA-1].mfeatures);
+		// 		gRTA = imageCurNum;											
+		// 	}
+		// 	else	// tracking
+		// 	{
+		// 		localTrackPointsA[gRTA+lTPA].OpticalFlowPyrLK(cv::imread(readImageName.at(imageCurNum-1), 
+		// 											cv::ImreadModes::IMREAD_UNCHANGED), img, trackerA1);
+		// 		localTrackPointsA.emplace_back(std::move(trackerA1));
+				
+		// 		cv::cvtColor(img, img, cv::ColorConversionCodes::COLOR_GRAY2BGR);
+		// 		img = pangolinViewer.cv_draw_features(img, localTrackPointsA.at(gRTA+lTPA).mfeatures, localTrackPointsA.at(gRTA+lTPA+1).mfeatures);
+				
+		// 		for(int i = 0; i < lTPA; i++)
+		// 		{
+		// 			ManageTrackPoints(localTrackPointsA.at(gRTA+lTPA+1), localTrackPointsA.at(gRTA+i));
+		// 			std::cout << "i: " << i << " ";
+		// 		}
+		// 		std::cout << std::endl;
+		// 		std::cout << "lTPA: " << lTPA << std::endl;
+		// 		lTPA++;
+		// 	}
+		// 	imageCurNum++;
+		// 	cv::imshow("img", img);
+		// 	if(cv::waitKey(0) == 27) break;	// ESC key
+		// }	// 2view SFM, get Essential
+
+
+		// lTPA = 0;
+		// localTrackPointsA.clear();
+		// gRTA = imageCurNum;
+
+
+
+
+
+		cv::Mat img;
+		img = cv::imread(readImageName.at(imageCurNum), 
+						cv::ImreadModes::IMREAD_UNCHANGED);
+		
+		imageCurNum++;
+		cv::imshow("img", img);
+		if(cv::waitKey(10) == 27) break; // ESC key
+	}
 
     return 0;
 }
+

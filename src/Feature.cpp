@@ -40,29 +40,30 @@ bool mvo::Feature::GoodFeaturesToTrack(const cv::Mat& src)
     return true;
 }
 
-bool mvo::Feature::OpticalFlowPyrLK(const cv::Mat& src1, const cv::Mat& src2, std::vector<cv::Vec2f>& pts1)
+bool mvo::Feature::OpticalFlowPyrLK(const cv::Mat& src1, const cv::Mat& src2, mvo::Feature& next)
 {
     cv::Size winSize = cv::Size(21,21);
     cv::TermCriteria termcrit = cv::TermCriteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, 30, 0.01);
     
-    cv::calcOpticalFlowPyrLK(src1, src2, pts1, mfeatures, mstatus, merr, winSize, 3, termcrit, 0, 0.0001);
+    cv::calcOpticalFlowPyrLK(src1, src2, mfeatures, next.mfeatures, next.mstatus, next.merr,
+                             winSize, 3, termcrit, 0, 0.0001);
 
     int indexCorrection = 0;
-    for(int i = 0; i < mstatus.size(); i++)
+    for(int i = 0; i < next.mstatus.size(); i++)
     {
-        cv::Vec2f pt = mfeatures.at(i - indexCorrection);
-        if((mstatus.at(i) == 0) || (pt[0] < 0) || (pt[1] < 0))
+        cv::Point2f pt = next.mfeatures.at(i - indexCorrection);
+        if((next.mstatus.at(i) == 0) || (pt.x < 0) || (pt.y < 0))
         {
-            if(((pt[0] < 0) || (pt[1] < 0)))
+            if(((pt.x < 0) || (pt.y < 0)))
             {
-                mstatus.at(i) = 0;
+                next.mstatus.at(i) = 0;
             }
-            pts1.erase(pts1.begin() + (i - indexCorrection));           // time complexity
-            mfeatures.erase(mfeatures.begin() + (i - indexCorrection));
+            mfeatures.erase(mfeatures.begin() + (i - indexCorrection));           // time complexity
+            next.mfeatures.erase(next.mfeatures.begin() + (i - indexCorrection));
             indexCorrection++;
         }
     }
-    if(mfeatures.empty())
+    if(next.mfeatures.empty())
     {
         std::cerr << "failed calcOpticalFlowPyrLK" << std::endl;
         return false;
@@ -70,12 +71,12 @@ bool mvo::Feature::OpticalFlowPyrLK(const cv::Mat& src1, const cv::Mat& src2, st
     return true;
 }
 
-bool ManageTrackPoints(const mvo::Feature& present, mvo::Feature before)
+bool ManageTrackPoints(const mvo::Feature& present, mvo::Feature& before)
 {
     int indexCorrection = 0;
     for(int i = 0; i < present.mstatus.size(); i++)
     {
-        cv::Vec2f pt = before.mfeatures.at(i-indexCorrection);
+        cv::Point2f pt = before.mfeatures.at(i-indexCorrection);
         if(present.mstatus.at(i) == 0)
         {
             before.mfeatures.erase(before.mfeatures.begin() + (i-indexCorrection));
