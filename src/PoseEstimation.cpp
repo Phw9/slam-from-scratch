@@ -43,13 +43,20 @@ bool mvo::StrctureFromMotion::CombineRt()
     return true;
 }
 
-mvo::PoseEstimation::PoseEstimation()
+bool mvo::StrctureFromMotion::GetRTvec()
 {
-    rvec = cv::Mat();
-    tvec = cv::Mat();
+    cv::Rodrigues(mRotation, mrvec);
+    for (int j = 0; j < mTranslation.rows; j++) {
+		for (int i = 0; i < mTranslation.cols; i++) {
+			mtvec[j] = mTranslation.at<double>(j, i);
+		}
+	}
 }
-bool mvo::PoseEstimation::solvePnP(const std::vector<cv::Vec3f>& objectPoints,
-                    const std::vector<cv::Vec2f>& imagePoints,
+
+mvo::PoseEstimation::PoseEstimation(){};
+
+bool mvo::PoseEstimation::solvePnP(const std::vector<cv::Point3f>& objectPoints,
+                    const std::vector<cv::Point2f>& imagePoints,
                     const cv::Mat cameraIntrinsic,
                     cv::OutputArray rvec,
                     cv::OutputArray tvec)

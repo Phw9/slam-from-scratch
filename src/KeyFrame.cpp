@@ -4,10 +4,9 @@ mvo::KeyFrame::KeyFrame(): mworldMapPoints{cv::Mat()}{};
 
 bool mvo::KeyFrame::CalcWorldPoints(const cv::Mat& pose1,
                                         const cv::Mat& pose2,
-                                        const std::vector<cv::Vec2f>& pts1,
-                                        const std::vector<cv::Vec2f>& pts2)
+                                        const std::vector<cv::Point2f>& pts1,
+                                        const std::vector<cv::Point2f>& pts2)
 {
-
     cv::triangulatePoints(pose1, pose2, pts1, pts2, mworldMapPoints);
     
     if(mworldMapPoints.empty())

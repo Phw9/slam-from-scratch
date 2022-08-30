@@ -12,10 +12,10 @@ namespace mvo
         KeyFrame();
         bool CalcWorldPoints(const cv::Mat& pose1,
                             const cv::Mat& pose2,
-                            const std::vector<cv::Vec2f>& pts1,
-                            const std::vector<cv::Vec2f>& pts2);
+                            const std::vector<cv::Point2f>& pts1,
+                            const std::vector<cv::Point2f>& pts2);
         bool ScalingPoints();
-
+        bool RvecToSO3();
     public:
         cv::Mat mworldMapPoints;
     };
