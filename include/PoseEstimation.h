@@ -5,6 +5,7 @@
 
 namespace mvo
 {
+    //2-view SFM
     class StrctureFromMotion
     {
     public:
@@ -16,7 +17,7 @@ namespace mvo
         bool GetEssentialRt(const cv::InputArray& E, const cv::InputArray& K, 
                             const std::vector<cv::Point2f>& pts1, const std::vector<cv::Point2f>& pts2);
         bool CombineRt();
-        bool GetRTvec();
+        void GetRTvec();
     public:
         cv::Mat mEssential;
         cv::Mat mRotation;
@@ -26,6 +27,7 @@ namespace mvo
         cv::Vec3d mtvec;
     };
 
+    // solvePnP
     class PoseEstimation
     {
     public:
@@ -34,13 +36,16 @@ namespace mvo
     public:
         bool solvePnP(const std::vector<cv::Point3f>& objectPoints,
                     const std::vector<cv::Point2f>& imagePoints,
-                    const cv::Mat cameraIntrinsic,
-                    cv::OutputArray rvec,
-                    cv::OutputArray tvec);
+                    const cv::Mat cameraIntrinsic);
+        void GetRTMat();
+        bool CombineRt();
 
     public:
-        cv::Vec3f rvec;
-        cv::Vec3f tvec;
+        cv::Mat mRotation;
+        cv::Mat mTranslation;
+        cv::Mat mCombineRt;
+        cv::Vec3d mrvec;
+        cv::Vec3d mtvec;
     };
 } //namespace mvo
 

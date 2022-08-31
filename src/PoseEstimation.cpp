@@ -43,7 +43,7 @@ bool mvo::StrctureFromMotion::CombineRt()
     return true;
 }
 
-bool mvo::StrctureFromMotion::GetRTvec()
+void mvo::StrctureFromMotion::GetRTvec()
 {
     cv::Rodrigues(mRotation, mrvec);
     for (int j = 0; j < mTranslation.rows; j++) {
@@ -53,17 +53,40 @@ bool mvo::StrctureFromMotion::GetRTvec()
 	}
 }
 
-mvo::PoseEstimation::PoseEstimation(){};
+mvo::PoseEstimation::PoseEstimation(): 
+            mRotation{cv::Mat()}, mTranslation{cv::Mat()}, mCombineRt{cv::Mat()}{};
 
 bool mvo::PoseEstimation::solvePnP(const std::vector<cv::Point3f>& objectPoints,
                     const std::vector<cv::Point2f>& imagePoints,
-                    const cv::Mat cameraIntrinsic,
-                    cv::OutputArray rvec,
-                    cv::OutputArray tvec)
+                    const cv::Mat cameraIntrinsic)
 {
-    if(!cv::solvePnPRansac(objectPoints, imagePoints, cameraIntrinsic, cv::Mat(), rvec, tvec))
+    if(!cv::solvePnPRansac(objectPoints, imagePoints, cameraIntrinsic, cv::Mat(), mrvec, mtvec))
     {
         std::cerr <<"Can't solve PnP" << std::endl;
+    }
+    return true;
+}
+
+void mvo::PoseEstimation::GetRTMat()
+{
+    cv::Rodrigues(mrvec, mRotation);
+    for (int j = 0; j < mTranslation.rows; j++) {
+		for (int i = 0; i < mTranslation.cols; i++) {
+			mTranslation.at<double>(j, i) = mtvec[j];
+		}
+	}
+}
+
+bool mvo::PoseEstimation::CombineRt()
+{
+    cv::Mat temp = cv::Mat();
+    temp = mRotation.t();
+    temp.push_back(mTranslation.t());
+    mCombineRt = temp.t();
+    if (!(mCombineRt.rows == 3 && mCombineRt.cols == 4))
+    {
+        std::cerr << "failed Combine Rotation Translation Matrix" << std::endl;
+        return false;
     }
     return true;
 }

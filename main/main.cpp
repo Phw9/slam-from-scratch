@@ -2,7 +2,7 @@
 #include "Feature.h"
 #include "Init.h"
 #include "PoseEstimation.h"
-#include "KeyFrame.h"
+#include "Triangulate.h"
 #include "opencv2/imgcodecs.hpp"
 #include "opencv2/highgui.hpp"
 
@@ -23,13 +23,14 @@ int main()
 	std::deque<std::string> readImageName;
 	cv::Mat img;
 	int imageCurNum = 0;
+	int imageRealFrame = 0;
 
 	MakeTextFile(rawData, IMAGENUM);
 	FileRead(readImageName, read);
 	GTPoseRead(tvecOfGT, readGTtvec);
 
 	mvo::Feature detector;
-	mvo::Feature trackerA1, trackerA2, trackerB1, trackerB2;
+	mvo::Feature trackerA, trackerB;
 	std::vector<mvo::Feature> localTrackPointsA;
 	localTrackPointsA.reserve(500);
 	int lTPA = 0;
@@ -39,15 +40,15 @@ int main()
 	mvo::StrctureFromMotion getEssential1, getEssential2;
 	
 	mvo::PoseEstimation getPose;
-	mvo::KeyFrame keyA, keyB;
-	std::vector<mvo::KeyFrame> globalLandMark;
+	mvo::Triangulate keyA, keyB;
+	std::vector<mvo::Triangulate> globalLandMark;
 	int gLM = 0;
-	int gKF = 0;
+	std::vector<int> gKF;
 
-	std::vector<cv::Vec3d> globalRvec;
-	std::vector<cv::Vec3d> globalTvec;
-	int gRT = 0;
-
+	std::vector<cv::Mat> globalRTMat;
+	std::vector<cv::Vec3d> globalRVec;
+	std::vector<cv::Vec3d> globalTVec;
+	int gP = 0;
 	
 	Viewer::my_visualize pangolinViewer=Viewer::my_visualize(WINDOWWIDTH, WINDOWHEIGHT);
     pangolinViewer.initialize();
@@ -60,7 +61,7 @@ int main()
 
 	while(true)
 	{
-		while(imageCurNum < ESSENTIALFRAME)
+		while(imageRealFrame < 2*ESSENTIALFRAME)
 		{
 			
 			img = cv::imread(readImageName.at(imageCurNum), 
@@ -70,41 +71,89 @@ int main()
 				std::cerr << "frame upload failed" << std::endl;
 			}
 
-			if(imageCurNum == 0)	// feature extract
+			if(imageRealFrame == 0)	// feature extract
 			{
-				if(!trackerA1.GoodFeaturesToTrack(img))
+				if(!trackerA.GoodFeaturesToTrack(img))
 				{	
-					std::cout << "new tracker" << std::endl;
+					std::cout << "new tracker A" << std::endl;
 				}
 				std::cout << imageCurNum << std::endl;
-				localTrackPointsA.emplace_back(std::move(trackerA1));
+				localTrackPointsA.emplace_back(std::move(trackerA));
 			}	
-			else if(imageCurNum == ESSENTIALFRAME-1)	// 2-viewSFM
+			else if(imageRealFrame == ESSENTIALFRAME-1)	// 2-viewSFM(1)
 			{
-				getEssential1.CreateEssentialMatrix(localTrackPointsA[gKF+lTPA].mfeatures, localTrackPointsA[gKF].mfeatures, intrinsicK);
+				imageCurNum--;
+				getEssential1.CreateEssentialMatrix(localTrackPointsA[0].mfeatures, localTrackPointsA[lTPA].mfeatures, intrinsicK);
 				getEssential1.GetEssentialRt(getEssential1.mEssential, intrinsicK,
-											localTrackPointsA[gKF].mfeatures, 
-											localTrackPointsA[gKF+lTPA-1].mfeatures);
-
+											localTrackPointsA[0].mfeatures, 
+											localTrackPointsA[lTPA-1].mfeatures);
+				
 				getEssential1.GetRTvec();
-				globalRvec.emplace_back(std::move(getEssential1.mrvec));
-				globalTvec.emplace_back(std::move(getEssential1.mtvec));
-				gRT++;
-				gKF = imageCurNum;
+				getEssential1.CombineRt();
+				globalRTMat.emplace_back(std::move(getEssential1.mCombineRt));
+				globalRVec.emplace_back(std::move(getEssential1.mrvec));
+				globalTVec.emplace_back(std::move(getEssential1.mtvec));
+				gP++;
+				gKF.emplace_back(imageCurNum);
+				std::cout << globalRTMat[gP-1] << std::endl;
+				std::cout << globalRVec[gP-1] << std::endl;
+				std::cout << globalTVec[gP-1] << std::endl;
+				std::cout << "lTPA: " << lTPA << " imagenum: " << imageCurNum << std::endl;
+				std::cout << "gKF: " << gKF[gP-1] << std::endl;
+			}else if(imageRealFrame == 2*ESSENTIALFRAME-1)	// 2-viewSFM(2)
+			{
+				imageCurNum--;
+				// 2-view SFM
+				getEssential1.CreateEssentialMatrix(localTrackPointsA[ESSENTIALFRAME-2].mfeatures, localTrackPointsA[lTPA].mfeatures, intrinsicK);
+				getEssential1.GetEssentialRt(getEssential1.mEssential, intrinsicK,
+											localTrackPointsA[ESSENTIALFRAME-2].mfeatures, 
+											localTrackPointsA[lTPA-1].mfeatures);
+				getEssential1.GetRTvec();
+				getEssential1.CombineRt();
+				globalRTMat.emplace_back(std::move(getEssential1.mCombineRt));
+				globalRVec.emplace_back(std::move(getEssential1.mrvec));
+				globalTVec.emplace_back(std::move(getEssential1.mtvec));
+				gP++;
+				gKF.emplace_back(imageCurNum);
+				
+				// Triangulate Landmark
+				keyA.CalcWorldPoints(globalRTMat[gP-2],globalRTMat[gP-1],
+							localTrackPointsA[gKF[0]].mfeatures, localTrackPointsA[gKF[1]].mfeatures);
+				keyA.ScalingPoints();
+				globalLandMark.emplace_back(std::move(keyA));
+				gLM++;
+
+				// create Track B
+				if(!trackerB.GoodFeaturesToTrack(img))
+				{	
+					std::cout << "new tracker B" << std::endl;
+				}
+				localTrackPointsB.emplace_back(std::move(trackerB));
+
+				std::cout << "TrackB size: " << localTrackPointsB[lTPB].mfeatures.size() << std::endl;
+				std::cout << "LandMark size : " << globalLandMark[gLM-1].mworldMapPoints.size() << std::endl;
+				std::cout << "local points size: " << localTrackPointsA[lTPA].mfeatures.size() << std::endl;
+
+				std::cout << globalRTMat[gP-1] << std::endl;
+				std::cout << globalRVec[gP-1] << std::endl;
+				std::cout << globalTVec[gP-1] << std::endl;
+				std::cout << "lTPA: " << lTPA << " imagenum: " << imageCurNum << std::endl;
+				std::cout << "gKF: " << gKF[gP-1] << std::endl;
+				// std::cout << globalLandMark[gLM-1].mworldMapPoints << std::endl;
 			}
 			else	// tracking
 			{
-				localTrackPointsA[gKF+lTPA].OpticalFlowPyrLK(cv::imread(readImageName.at(imageCurNum-1), 
-													cv::ImreadModes::IMREAD_UNCHANGED), img, trackerA1);
-				localTrackPointsA.emplace_back(std::move(trackerA1));
+				localTrackPointsA[lTPA].OpticalFlowPyrLK(cv::imread(readImageName.at(imageCurNum-1), 
+													cv::ImreadModes::IMREAD_UNCHANGED), img, trackerA);
+				localTrackPointsA.emplace_back(std::move(trackerA));
 				
 				cv::cvtColor(img, img, cv::ColorConversionCodes::COLOR_GRAY2BGR);
-				img = pangolinViewer.cv_draw_features(img, localTrackPointsA.at(gKF+lTPA).mfeatures, 
-													localTrackPointsA.at(gKF+lTPA+1).mfeatures);
+				img = pangolinViewer.cv_draw_features(img, localTrackPointsA.at(lTPA).mfeatures, 
+													localTrackPointsA.at(lTPA+1).mfeatures);
 				
 				for(int i = 0; i < lTPA; i++)
 				{
-					ManageTrackPoints(localTrackPointsA.at(gKF+lTPA+1), localTrackPointsA.at(gKF+i));
+					ManageTrackPoints(localTrackPointsA.at(lTPA+1), localTrackPointsA.at(i));
 					std::cout << "i: " << i << " ";
 				}
 				std::cout << std::endl;
@@ -112,16 +161,93 @@ int main()
 				lTPA++;
 			}
 			imageCurNum++;
+			imageRealFrame++;
 			cv::imshow("img", img);
 			if(cv::waitKey(0) == 27) break; // ESC key
-		} // 2view SFM, get Essential
+		} // 2view SFM, Track(A,B) make, generate LandMark = current localFeature size
 
 
-		cv::Mat img;
+		// start SolvePnP
+
 		img = cv::imread(readImageName.at(imageCurNum), 
 						cv::ImreadModes::IMREAD_UNCHANGED);
 		
+		// if(keyframe gen){ generate MapPoints, Pose, new Track}
+
+		// if num of Feature is less than NUMOFPOINTS, GFTT
+		if(localTrackPointsA[lTPA].mfeatures.size() < NUMOFPOINTS)
+		{
+			if(!trackerA.GoodFeaturesToTrack(img))
+			{	
+				std::cout << "new tracker A" << std::endl;
+			}
+			std::cout << imageCurNum << std::endl;
+			localTrackPointsA.clear();
+			localTrackPointsA.emplace_back(std::move(trackerA));
+			lTPA = 0;
+		}
+		if(localTrackPointsB[lTPB].mfeatures.size() < NUMOFPOINTS)
+		{
+			if(!trackerB.GoodFeaturesToTrack(img))
+			{	
+				std::cout << "new tracker A" << std::endl;
+			}
+			std::cout << imageCurNum << std::endl;
+			localTrackPointsB.clear();
+			localTrackPointsB.emplace_back(std::move(trackerB));
+			lTPB = 0;
+		}
+		// solvePnP how to match number of globalLandMark, localTrackpoints
+		// getPose.solvePnP(globalLandMark[gLM-1].mworldMapPoints, localTrackPointsA[lTPA].mfeatures, intrinsicK);
+		// getPose.solvePnP(globalLandMark[gLM-1].mworldMapPoints, localTrackPointsB[lTPB].mfeatures, intrinsicK);
+
+
+		// tracking
+
+		localTrackPointsA[lTPA].OpticalFlowPyrLK(cv::imread(readImageName.at(imageCurNum-1), 
+													cv::ImreadModes::IMREAD_UNCHANGED), img, trackerA);
+				localTrackPointsA.emplace_back(std::move(trackerA));
+		for(int i = 0; i < lTPA; i++)
+		{
+			ManageTrackPoints(localTrackPointsA.at(lTPA+1), localTrackPointsA.at(i));
+			std::cout << "i: " << i << " ";
+		}
+		std::cout << std::endl;
+		std::cout << "lTPA: " << lTPA << std::endl;
+		std::cout << "lTPA size : " << localTrackPointsA[lTPA].mfeatures.size() << std::endl;
+		lTPA++;
+		
+		
+		localTrackPointsB[lTPB].OpticalFlowPyrLK(cv::imread(readImageName.at(imageCurNum-1), 
+													cv::ImreadModes::IMREAD_UNCHANGED), img, trackerB);
+		localTrackPointsB.emplace_back(std::move(trackerB));
+		for(int i = 0; i < lTPB; i++)
+		{
+			ManageTrackPoints(localTrackPointsB.at(lTPB+1), localTrackPointsB.at(i));
+			std::cout << "i: " << i << " ";
+		}
+		std::cout << std::endl;
+		std::cout << "lTPB: " << lTPB << std::endl;
+		std::cout << "lTPB size : " << localTrackPointsB[lTPB].mfeatures.size() << std::endl << std::endl;
+		lTPB++;
+
+
+		// draw tracking points
+		if(localTrackPointsA[lTPA].mfeatures.size() > localTrackPointsB[lTPB].mfeatures.size())
+		{
+		cv::cvtColor(img, img, cv::ColorConversionCodes::COLOR_GRAY2BGR);
+		img = pangolinViewer.cv_draw_features(img, localTrackPointsA.at(lTPA-1).mfeatures, 
+											localTrackPointsA.at(lTPA).mfeatures);
+		}
+		else
+		{
+		cv::cvtColor(img, img, cv::ColorConversionCodes::COLOR_GRAY2BGR);
+		img = pangolinViewer.cv_draw_features(img, localTrackPointsB.at(lTPB-1).mfeatures, 
+											localTrackPointsB.at(lTPB).mfeatures);		
+		}
+
 		imageCurNum++;
+		imageRealFrame++;
 		cv::imshow("img", img);
 		if(cv::waitKey(0) == 27) break; // ESC key
 	}
