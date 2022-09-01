@@ -37,10 +37,11 @@ int main()
 	std::vector<mvo::Feature> localTrackPointsB;
 	localTrackPointsB.reserve(500);
 	int lTPB = 0;
-	mvo::StrctureFromMotion getEssential1, getEssential2;
+
+	mvo::StrctureFromMotion getEssential;
 	
 	mvo::PoseEstimation getPose;
-	mvo::Triangulate keyA, keyB;
+	mvo::Triangulate mapPointsA, mapPointsB;
 	std::vector<mvo::Triangulate> globalLandMark;
 	int gLM = 0;
 	std::vector<int> gKF;
@@ -83,16 +84,16 @@ int main()
 			else if(imageRealFrame == ESSENTIALFRAME-1)	// 2-viewSFM(1)
 			{
 				imageCurNum--;
-				getEssential1.CreateEssentialMatrix(localTrackPointsA[0].mfeatures, localTrackPointsA[lTPA].mfeatures, intrinsicK);
-				getEssential1.GetEssentialRt(getEssential1.mEssential, intrinsicK,
+				getEssential.CreateEssentialMatrix(localTrackPointsA[0].mfeatures, localTrackPointsA[lTPA].mfeatures, intrinsicK);
+				getEssential.GetEssentialRt(getEssential.mEssential, intrinsicK,
 											localTrackPointsA[0].mfeatures, 
 											localTrackPointsA[lTPA-1].mfeatures);
 				
-				getEssential1.GetRTvec();
-				getEssential1.CombineRt();
-				globalRTMat.emplace_back(std::move(getEssential1.mCombineRt));
-				globalRVec.emplace_back(std::move(getEssential1.mrvec));
-				globalTVec.emplace_back(std::move(getEssential1.mtvec));
+				getEssential.GetRTvec();
+				getEssential.CombineRt();
+				globalRTMat.emplace_back(std::move(getEssential.mCombineRt));
+				globalRVec.emplace_back(std::move(getEssential.mrvec));
+				globalTVec.emplace_back(std::move(getEssential.mtvec));
 				gP++;
 				gKF.emplace_back(imageCurNum);
 				std::cout << globalRTMat[gP-1] << std::endl;
@@ -104,24 +105,30 @@ int main()
 			{
 				imageCurNum--;
 				// 2-view SFM
-				getEssential1.CreateEssentialMatrix(localTrackPointsA[ESSENTIALFRAME-2].mfeatures, localTrackPointsA[lTPA].mfeatures, intrinsicK);
-				getEssential1.GetEssentialRt(getEssential1.mEssential, intrinsicK,
+				getEssential.CreateEssentialMatrix(localTrackPointsA[ESSENTIALFRAME-2].mfeatures, localTrackPointsA[lTPA].mfeatures, intrinsicK);
+				getEssential.GetEssentialRt(getEssential.mEssential, intrinsicK,
 											localTrackPointsA[ESSENTIALFRAME-2].mfeatures, 
 											localTrackPointsA[lTPA-1].mfeatures);
-				getEssential1.GetRTvec();
-				getEssential1.CombineRt();
-				globalRTMat.emplace_back(std::move(getEssential1.mCombineRt));
-				globalRVec.emplace_back(std::move(getEssential1.mrvec));
-				globalTVec.emplace_back(std::move(getEssential1.mtvec));
+				getEssential.GetRTvec();
+				getEssential.CombineRt();
+				globalRTMat.emplace_back(std::move(getEssential.mCombineRt));
+				globalRVec.emplace_back(std::move(getEssential.mrvec));
+				globalTVec.emplace_back(std::move(getEssential.mtvec));
 				gP++;
 				gKF.emplace_back(imageCurNum);
 				
 				// Triangulate Landmark
-				keyA.CalcWorldPoints(globalRTMat[gP-2],globalRTMat[gP-1],
+				mapPointsA.CalcWorldPoints(globalRTMat[gP-2],globalRTMat[gP-1],
 							localTrackPointsA[gKF[0]].mfeatures, localTrackPointsA[gKF[1]].mfeatures);
-				keyA.ScalingPoints();
-				globalLandMark.emplace_back(std::move(keyA));
+				mapPointsA.ScalingPoints();
+				mapPointsA.MatToPoints3d();
+				globalLandMark.emplace_back(mapPointsA);
 				gLM++;
+				std::cout << "mapPointsA size: " << mapPointsA.mworldMapPoints.size() << std::endl;
+				std::cout << "mapPointsA vector size: " << mapPointsA.mworldMapPointsV.size() << std::endl;
+				std::cout << "localPointsA size: " << localTrackPointsA[gKF[1]].mfeatures.size() <<std::endl;
+				std::cout << "global landmark size: " << globalLandMark[gLM-1].mworldMapPoints.size() << std::endl;
+
 
 				// create Track B
 				if(!trackerB.GoodFeaturesToTrack(img))
@@ -153,7 +160,7 @@ int main()
 				
 				for(int i = 0; i < lTPA; i++)
 				{
-					ManageTrackPoints(localTrackPointsA.at(lTPA+1), localTrackPointsA.at(i));
+					ManageTrackPoints(localTrackPointsA.at(lTPA+1), localTrackPointsA.at(i), mapPointsA.mworldMapPointsV);
 					std::cout << "i: " << i << " ";
 				}
 				std::cout << std::endl;
@@ -167,7 +174,7 @@ int main()
 		} // 2view SFM, Track(A,B) make, generate LandMark = current localFeature size
 
 
-		// start SolvePnP
+		// Start
 
 		img = cv::imread(readImageName.at(imageCurNum), 
 						cv::ImreadModes::IMREAD_UNCHANGED);
@@ -181,9 +188,18 @@ int main()
 			{	
 				std::cout << "new tracker A" << std::endl;
 			}
-			std::cout << imageCurNum << std::endl;
+			getPose.solvePnP(mapPointsA.mworldMapPointsV, 
+							localTrackPointsA[lTPA].mfeatures, intrinsicK);
+			std::cout << "hello" << std::endl;
+			getPose.CombineRt();
+			std::cout << "hello" << std::endl;
+			getPose.GetRTMat();
+			std::cout << "hello" << std::endl;
+			
+
 			localTrackPointsA.clear();
 			localTrackPointsA.emplace_back(std::move(trackerA));
+			
 			lTPA = 0;
 		}
 		if(localTrackPointsB[lTPB].mfeatures.size() < NUMOFPOINTS)
@@ -209,9 +225,13 @@ int main()
 				localTrackPointsA.emplace_back(std::move(trackerA));
 		for(int i = 0; i < lTPA; i++)
 		{
-			ManageTrackPoints(localTrackPointsA.at(lTPA+1), localTrackPointsA.at(i));
-			std::cout << "i: " << i << " ";
+			ManageTrackPoints(localTrackPointsA.at(lTPA+1), localTrackPointsA.at(i), mapPointsA.mworldMapPointsV);
 		}
+		std::cout << std::endl;
+		std::cout << "mapPoints.size A: " << mapPointsA.mworldMapPointsV.size() << std::endl;
+		std::cout << "present local points size A: " << localTrackPointsA[lTPA+1].mfeatures.size() << std::endl;
+		std::cout << "before local points size A: " << localTrackPointsA[lTPA].mfeatures.size() << std::endl;
+
 		std::cout << std::endl;
 		std::cout << "lTPA: " << lTPA << std::endl;
 		std::cout << "lTPA size : " << localTrackPointsA[lTPA].mfeatures.size() << std::endl;
@@ -223,9 +243,12 @@ int main()
 		localTrackPointsB.emplace_back(std::move(trackerB));
 		for(int i = 0; i < lTPB; i++)
 		{
-			ManageTrackPoints(localTrackPointsB.at(lTPB+1), localTrackPointsB.at(i));
-			std::cout << "i: " << i << " ";
+			ManageTrackPoints(localTrackPointsB.at(lTPB+1), localTrackPointsB.at(i), mapPointsB.mworldMapPointsV);
 		}
+		std::cout << "mapPoints.size B = " << mapPointsB.mworldMapPointsV.size() << std::endl;
+		std::cout << "present local points size B: " << localTrackPointsB[lTPB+1].mfeatures.size() << std::endl;
+		std::cout << "before local points size B: " << localTrackPointsB[lTPB].mfeatures.size() << std::endl;
+
 		std::cout << std::endl;
 		std::cout << "lTPB: " << lTPB << std::endl;
 		std::cout << "lTPB size : " << localTrackPointsB[lTPB].mfeatures.size() << std::endl << std::endl;

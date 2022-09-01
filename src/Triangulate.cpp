@@ -1,6 +1,9 @@
 #include "../include/Triangulate.h"
 
-mvo::Triangulate::Triangulate(): mworldMapPoints{cv::Mat()}{};
+mvo::Triangulate::Triangulate(): mworldMapPoints{cv::Mat()}
+{
+    mworldMapPointsV.clear();
+};
 
 bool mvo::Triangulate::CalcWorldPoints(const cv::Mat& pose1,
                                         const cv::Mat& pose2,
@@ -30,4 +33,18 @@ bool mvo::Triangulate::ScalingPoints()
     if(mworldMapPoints.at<float>(mworldMapPoints.rows-1,0) != 1.0f) return false;
 
     return true;
+}
+
+void mvo::Triangulate::MatToPoints3d()
+{
+    cv::Point3d temp;
+    for (int i = 0; i < mworldMapPoints.cols; i++) 
+    {
+		temp.x = mworldMapPoints.at<double>(0, i);
+        temp.y = mworldMapPoints.at<double>(1, i);
+        temp.z = mworldMapPoints.at<double>(2, i);
+
+        mworldMapPointsV.emplace_back(std::move(temp));
+	}
+    std::cout << "MatToPoints3d success" << std::endl;
 }

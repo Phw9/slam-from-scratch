@@ -25,4 +25,5 @@ namespace mvo
     };
 }//namespace mvo
 
-bool ManageTrackPoints(const mvo::Feature& present, mvo::Feature& before);
+void ManageTrackPoints(const mvo::Feature& present, mvo::Feature& before);
+void ManageTrackPoints(const mvo::Feature& present, mvo::Feature& before, std::vector<cv::Point3d>& mapPoints);

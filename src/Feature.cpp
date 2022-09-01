@@ -71,12 +71,35 @@ bool mvo::Feature::OpticalFlowPyrLK(const cv::Mat& src1, const cv::Mat& src2, mv
     return true;
 }
 
-bool ManageTrackPoints(const mvo::Feature& present, mvo::Feature& before)
+void ManageTrackPoints(const mvo::Feature& present, mvo::Feature& before)
 {
     int indexCorrection = 0;
     for(int i = 0; i < present.mstatus.size(); i++)
     {
-        cv::Point2f pt = before.mfeatures.at(i-indexCorrection);
+        if(present.mstatus.at(i) == 0)
+        {
+            before.mfeatures.erase(before.mfeatures.begin() + (i-indexCorrection));
+            indexCorrection++;
+        }
+    }
+}
+void ManageTrackPoints(const mvo::Feature& present, mvo::Feature& before, std::vector<cv::Point3d>& mapPoints)
+{
+    int indexCorrection = 0;
+    
+    if(mapPoints.size() == before.mfeatures.size())
+    {
+        for(int i = 0; i < present.mstatus.size(); i++)
+        {
+            if(present.mstatus.at(i) == 0)
+            {
+                mapPoints.erase(mapPoints.begin() + (i - indexCorrection));
+                indexCorrection++;
+            }
+        }
+    }
+    for(int i = 0; i < present.mstatus.size(); i++)
+    {
         if(present.mstatus.at(i) == 0)
         {
             before.mfeatures.erase(before.mfeatures.begin() + (i-indexCorrection));

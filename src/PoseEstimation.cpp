@@ -56,11 +56,11 @@ void mvo::StrctureFromMotion::GetRTvec()
 mvo::PoseEstimation::PoseEstimation(): 
             mRotation{cv::Mat()}, mTranslation{cv::Mat()}, mCombineRt{cv::Mat()}{};
 
-bool mvo::PoseEstimation::solvePnP(const std::vector<cv::Point3f>& objectPoints,
+bool mvo::PoseEstimation::solvePnP(const std::vector<cv::Point3d>& objectPoints,
                     const std::vector<cv::Point2f>& imagePoints,
                     const cv::Mat cameraIntrinsic)
 {
-    if(!cv::solvePnPRansac(objectPoints, imagePoints, cameraIntrinsic, cv::Mat(), mrvec, mtvec))
+    if(!cv::solvePnPRansac(objectPoints, imagePoints, cameraIntrinsic, cv::Mat(), mrvec, mTranslation))
     {
         std::cerr <<"Can't solve PnP" << std::endl;
     }
@@ -70,9 +70,11 @@ bool mvo::PoseEstimation::solvePnP(const std::vector<cv::Point3f>& objectPoints,
 void mvo::PoseEstimation::GetRTMat()
 {
     cv::Rodrigues(mrvec, mRotation);
+    cv::Mat temp = -mRotation.inv()*mTranslation;
+
     for (int j = 0; j < mTranslation.rows; j++) {
 		for (int i = 0; i < mTranslation.cols; i++) {
-			mTranslation.at<double>(j, i) = mtvec[j];
+			mtvec[j] = mTranslation.at<double>(j, i);
 		}
 	}
 }

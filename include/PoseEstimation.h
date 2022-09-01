@@ -34,7 +34,7 @@ namespace mvo
         PoseEstimation();
 
     public:
-        bool solvePnP(const std::vector<cv::Point3f>& objectPoints,
+        bool solvePnP(const std::vector<cv::Point3d>& objectPoints,
                     const std::vector<cv::Point2f>& imagePoints,
                     const cv::Mat cameraIntrinsic);
         void GetRTMat();
@@ -45,6 +45,7 @@ namespace mvo
         cv::Mat mTranslation;
         cv::Mat mCombineRt;
         cv::Vec3d mrvec;
+        cv::Mat mtvecBef;
         cv::Vec3d mtvec;
     };
 } //namespace mvo

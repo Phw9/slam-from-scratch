@@ -15,8 +15,9 @@ namespace mvo
                             const std::vector<cv::Point2f>& pts1,
                             const std::vector<cv::Point2f>& pts2);
         bool ScalingPoints();
-        // bool RvecToSO3();
+        void MatToPoints3d();
     public:
         cv::Mat mworldMapPoints;
+        std::vector<cv::Point3d> mworldMapPointsV;
     };
 }
