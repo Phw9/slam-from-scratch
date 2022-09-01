@@ -189,7 +189,7 @@ int main()
 				std::cout << "new tracker A" << std::endl;
 			}
 			getPose.solvePnP(mapPointsA.mworldMapPointsV, 
-							localTrackPointsA[lTPA].mfeatures, intrinsicK);
+							localTrackPointsA[lTPA-1].mfeatures, intrinsicK);
 			std::cout << "hello" << std::endl;
 			getPose.CombineRt();
 			std::cout << "hello" << std::endl;

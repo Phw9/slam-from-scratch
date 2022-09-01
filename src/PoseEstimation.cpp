@@ -58,7 +58,7 @@ mvo::PoseEstimation::PoseEstimation():
 
 bool mvo::PoseEstimation::solvePnP(const std::vector<cv::Point3d>& objectPoints,
                     const std::vector<cv::Point2f>& imagePoints,
-                    const cv::Mat cameraIntrinsic)
+                    const cv::Mat& cameraIntrinsic)
 {
     if(!cv::solvePnPRansac(objectPoints, imagePoints, cameraIntrinsic, cv::Mat(), mrvec, mTranslation))
     {
