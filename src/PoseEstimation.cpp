@@ -59,22 +59,32 @@ mvo::PoseEstimation::PoseEstimation():
 bool mvo::PoseEstimation::solvePnP(const std::vector<cv::Point3d>& objectPoints,
                     const std::vector<cv::Point2f>& imagePoints,
                     const cv::Mat& cameraIntrinsic)
-{
-    if(!cv::solvePnPRansac(objectPoints, imagePoints, cameraIntrinsic, cv::Mat(), mrvec, mTranslation))
+{   
+    std::vector<cv::Point3f> v;
+    cv::Point3f temp;
+    for(int i = 0; i<objectPoints.size(); i++)
+    {
+       temp.x= (float)objectPoints.at(i).x;
+       temp.y= (float)objectPoints.at(i).y;
+       temp.z= (float)objectPoints.at(i).z;
+       v.emplace_back(std::move(temp));
+    }
+    if(!cv::solvePnP(v, imagePoints, cameraIntrinsic, cv::Mat(), mrvec, mTranslation))
     {
         std::cerr <<"Can't solve PnP" << std::endl;
+        return false;
     }
     return true;
 }
 
-void mvo::PoseEstimation::GetRTMat()
+void mvo::PoseEstimation::GetRMatTPose()
 {
     cv::Rodrigues(mrvec, mRotation);
     cv::Mat temp = -mRotation.inv()*mTranslation;
 
     for (int j = 0; j < mTranslation.rows; j++) {
 		for (int i = 0; i < mTranslation.cols; i++) {
-			mtvec[j] = mTranslation.at<double>(j, i);
+			mtvec[j] = temp.at<double>(j, i);
 		}
 	}
 }

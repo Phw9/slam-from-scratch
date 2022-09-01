@@ -46,5 +46,4 @@ void mvo::Triangulate::MatToPoints3d()
 
         mworldMapPointsV.emplace_back(std::move(temp));
 	}
-    std::cout << "MatToPoints3d success" << std::endl;
 }

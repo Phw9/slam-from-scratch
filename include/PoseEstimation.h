@@ -37,7 +37,7 @@ namespace mvo
         bool solvePnP(const std::vector<cv::Point3d>& objectPoints,
                     const std::vector<cv::Point2f>& imagePoints,
                     const cv::Mat& cameraIntrinsic);
-        void GetRTMat();
+        void GetRMatTPose();
         bool CombineRt();
 
     public:

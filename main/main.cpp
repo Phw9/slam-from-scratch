@@ -146,7 +146,6 @@ int main()
 				std::cout << globalTVec[gP-1] << std::endl;
 				std::cout << "lTPA: " << lTPA << " imagenum: " << imageCurNum << std::endl;
 				std::cout << "gKF: " << gKF[gP-1] << std::endl;
-				// std::cout << globalLandMark[gLM-1].mworldMapPoints << std::endl;
 			}
 			else	// tracking
 			{
@@ -179,44 +178,72 @@ int main()
 		img = cv::imread(readImageName.at(imageCurNum), 
 						cv::ImreadModes::IMREAD_UNCHANGED);
 		
-		// if(keyframe gen){ generate MapPoints, Pose, new Track}
+		// if(keyframe gen){ generate Pose, MapPoints, new Track}
 
 		// if num of Feature is less than NUMOFPOINTS, GFTT
 		if(localTrackPointsA[lTPA].mfeatures.size() < NUMOFPOINTS)
 		{
+			getPose.solvePnP(mapPointsA.mworldMapPointsV, 
+							localTrackPointsA[lTPA-1].mfeatures, intrinsicK);
+			getPose.GetRMatTPose();
+			getPose.CombineRt();
+			globalRTMat.emplace_back(std::move(getPose.mCombineRt));
+			globalRVec.emplace_back(std::move(getPose.mrvec));
+			globalTVec.emplace_back(std::move(getPose.mtvec));
+			gP++;
+
+			// triangulate
+			mapPointsA.CalcWorldPoints(globalRTMat.at(gP-2), globalRTMat.at(gP-1), 
+									localTrackPointsB.at(0).mfeatures, localTrackPointsB.at(lTPB).mfeatures);
+			mapPointsA.ScalingPoints();
+			mapPointsA.MatToPoints3d();
+			globalLandMark.emplace_back(mapPointsA);
+			gLM++;
+			std::cout << "hello" <<std::endl;
 			if(!trackerA.GoodFeaturesToTrack(img))
 			{	
 				std::cout << "new tracker A" << std::endl;
 			}
-			getPose.solvePnP(mapPointsA.mworldMapPointsV, 
-							localTrackPointsA[lTPA-1].mfeatures, intrinsicK);
-			std::cout << "hello" << std::endl;
-			getPose.CombineRt();
-			std::cout << "hello" << std::endl;
-			getPose.GetRTMat();
-			std::cout << "hello" << std::endl;
-			
-
+			std::cout << "hello" <<std::endl;
 			localTrackPointsA.clear();
+			std::cout << "hello" <<std::endl;
 			localTrackPointsA.emplace_back(std::move(trackerA));
-			
-			lTPA = 0;
+			std::cout << "hello" <<std::endl;
+			lTPA = 1;
+			imageCurNum++;
+			imageRealFrame++;
 		}
 		if(localTrackPointsB[lTPB].mfeatures.size() < NUMOFPOINTS)
 		{
+			getPose.solvePnP(mapPointsB.mworldMapPointsV, 
+							localTrackPointsB[lTPB-1].mfeatures, intrinsicK);
+			getPose.GetRMatTPose();
+			getPose.CombineRt();
+			globalRTMat.emplace_back(std::move(getPose.mCombineRt));
+			globalRVec.emplace_back(std::move(getPose.mrvec));
+			globalTVec.emplace_back(std::move(getPose.mtvec));
+			gP++;
+
+			// triangulate
+			mapPointsB.CalcWorldPoints(globalRTMat.at(gP-2), globalRTMat.at(gP-1), 
+									localTrackPointsA.at(0).mfeatures, localTrackPointsA.at(lTPA).mfeatures);
+			mapPointsB.ScalingPoints();
+			mapPointsB.MatToPoints3d();
+			globalLandMark.emplace_back(mapPointsB);
+			gLM++;
+
+
+
 			if(!trackerB.GoodFeaturesToTrack(img))
 			{	
 				std::cout << "new tracker A" << std::endl;
 			}
-			std::cout << imageCurNum << std::endl;
 			localTrackPointsB.clear();
 			localTrackPointsB.emplace_back(std::move(trackerB));
-			lTPB = 0;
+			lTPB = 1;
+			imageCurNum++;
+			imageRealFrame++;
 		}
-		// solvePnP how to match number of globalLandMark, localTrackpoints
-		// getPose.solvePnP(globalLandMark[gLM-1].mworldMapPoints, localTrackPointsA[lTPA].mfeatures, intrinsicK);
-		// getPose.solvePnP(globalLandMark[gLM-1].mworldMapPoints, localTrackPointsB[lTPB].mfeatures, intrinsicK);
-
 
 		// tracking
 

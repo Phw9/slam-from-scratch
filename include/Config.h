@@ -3,7 +3,7 @@
 #include "opencv2/imgproc.hpp"
 
 #define IMAGENUM 4540
-#define ESSENTIALFRAME 5
+#define ESSENTIALFRAME 9
 #define WINDOWWIDTH 1024
 #define WINDOWHEIGHT 768
 #define VIEWPOINTF 2000.0
