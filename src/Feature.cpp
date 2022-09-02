@@ -1,7 +1,7 @@
 #include <iostream>
 #include "Feature.h"
 
-mvo::Feature::Feature() : mdesc{cv::Mat()}
+mvo::Feature::Feature(): mdesc{cv::Mat()}
 {
     mfastKeyPoints.clear();
     mfeatures.clear();

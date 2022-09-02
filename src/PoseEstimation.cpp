@@ -69,11 +69,15 @@ bool mvo::PoseEstimation::solvePnP(const std::vector<cv::Point3d>& objectPoints,
        temp.z= (float)objectPoints.at(i).z;
        v.emplace_back(std::move(temp));
     }
-    if(!cv::solvePnP(v, imagePoints, cameraIntrinsic, cv::Mat(), mrvec, mTranslation))
+    cv::Mat inlier;
+    std::cout<< v.size() << ", " << imagePoints.size() <<std::endl;
+    
+    if(!cv::solvePnPRansac(v, imagePoints, cameraIntrinsic, cv::Mat(), mrvec, mTranslation,false, 100, 3.0F, 0.99, inlier, cv::SOLVEPNP_ITERATIVE))
     {
         std::cerr <<"Can't solve PnP" << std::endl;
         return false;
     }
+    std::cout<<inlier.rows<<std::endl;
     return true;
 }
 

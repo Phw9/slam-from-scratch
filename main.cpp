@@ -32,10 +32,10 @@ int main()
 	mvo::Feature detector;
 	mvo::Feature trackerA, trackerB;
 	std::vector<mvo::Feature> localTrackPointsA;
-	localTrackPointsA.reserve(3000);
+	localTrackPointsA.reserve(6000);
 	int lTPA = 0;
 	std::vector<mvo::Feature> localTrackPointsB;
-	localTrackPointsB.reserve(3000);
+	localTrackPointsB.reserve(6000);
 	int lTPB = 0;
 
 	mvo::StrctureFromMotion getEssential;
@@ -77,7 +77,7 @@ int main()
 				{	
 					std::cout << "new tracker A" << std::endl;
 				}
-				localTrackPointsA.emplace_back(std::move(trackerA)); // lTPA=0
+				localTrackPointsA.emplace_back(std::move(trackerA));
 			}	
 			else if(realFrame == ESSENTIALFRAME-1)	// 2-viewSFM(1)
 			{
@@ -115,8 +115,14 @@ int main()
 				gP++;
 				gKF.emplace_back(imageCurNum);
 				
+				cv::Mat mm = cv::Mat::zeros(cv::Size(3,3), CV_64F);
+				cv::Mat mv = cv::Mat(cv::Size(3,1),CV_64F,1);
+				mm.push_back(mv);
+				mm = mm.t();
+				std::cout << "mm: " << mm << std::endl;
+
 				// Triangulate Landmark
-				mapPointsA.CalcWorldPoints(globalRTMat[gP-2],globalRTMat[gP-1],
+				mapPointsA.CalcWorldPoints(globalRTMat[gP-2], globalRTMat[gP-1],
 							localTrackPointsA[gKF[0]].mfeatures, localTrackPointsA[gKF[1]].mfeatures);
 				mapPointsA.ScalingPoints();
 				mapPointsA.MatToPoints3d();
@@ -178,6 +184,9 @@ int main()
 			mapPointsA.MatToPoints3d();
 			globalLandMark.emplace_back(mapPointsA);
 			gLM++;
+			std::cout << "hello" << std::endl;
+			localTrackPointsA.clear();
+			std::cout << "hello" << std::endl;
 			if(!trackerA.GoodFeaturesToTrack(img))
 			{	
 				std::cout << "new tracker A" << std::endl;
@@ -185,10 +194,7 @@ int main()
 			std::cout << "hello" << std::endl;
 			std::cout << "localPointsA: " <<localTrackPointsA.at(lTPA).mfeatures.size() <<std::endl;
 			std::cout << "local A size : " << localTrackPointsA.size() << std::endl;
-			localTrackPointsA.clear();
-			std::cout << "hello" <<std::endl;
 			localTrackPointsA.emplace_back(std::move(trackerA));
-			std::cout << "hello" <<std::endl;
 			lTPA = 1;
 			imageCurNum++;
 			realFrame++;
@@ -212,15 +218,12 @@ int main()
 			globalLandMark.emplace_back(mapPointsB);
 			gLM++;
 
-
-
 			if(!trackerB.GoodFeaturesToTrack(img))
 			{	
 				std::cout << "new tracker A" << std::endl;
 			}
-			localTrackPointsB.clear();
 			localTrackPointsB.emplace_back(std::move(trackerB));
-			lTPB = 1;
+			lTPB++;
 			imageCurNum++;
 			realFrame++;
 		}
@@ -275,7 +278,10 @@ int main()
 		img = pangolinViewer.cv_draw_features(img, localTrackPointsB.at(lTPB-1).mfeatures, 
 											localTrackPointsB.at(lTPB).mfeatures);		
 		}
-
+		std::cout << "imageCurnum: " << imageCurNum;
+		std::cout << " frame: " << realFrame <<std::endl;
+		std::cout << "lTPA: " << lTPA;
+		std::cout << " lTPB: " << lTPB << std::endl;
 		imageCurNum++;
 		realFrame++;
 		cv::imshow("img", img);
