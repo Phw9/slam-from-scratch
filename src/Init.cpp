@@ -104,10 +104,13 @@ void Viewer::my_visualize::active_cam()
 }
 
 // pts1: GT Pose, pts2: Pose, pts3: 3D Points, pts4: FOV of 3D Points
-void Viewer::my_visualize::draw_point(std::vector<cv::Mat>& pose, std::vector<cv::Vec3f>& gtPose, std::vector<cv::Mat>& allOfPoints, cv::Mat fovPoints)
+void draw_point(const std::vector<cv::Vec3d>& tvec, 
+                const std::vector<Eigen::Vector3d>& gtPose,
+                const std::vector<mvo::Triangulate>& allOfPoints,
+                const std::vector<cv::Point3d>& fovPoints)
 {
     glClearColor(1.0f,1.0f,1.0f,1.0f);
-    if(pose.size()==0 || gtPose.size()==0)
+    if(tvec.size()==0 || gtPose.size()==0)
 	{
         return;
     }
@@ -118,9 +121,9 @@ void Viewer::my_visualize::draw_point(std::vector<cv::Mat>& pose, std::vector<cv
         glBegin(GL_POINTS);
         glColor3f(1.0,0.0,0.0); //
 
-        for(int i=0;i<pose.size();i++)
+        for(int i=0;i<tvec.size();i++)
 	    {
-            glVertex3f(pose[i].at<float>(0,0),0.0f, pose[i].at<float>(2,0));
+            glVertex3d(tvec.at(i)[0], tvec.at(i)[1], tvec.at(i)[2]);
         }
         glEnd();
 
@@ -130,7 +133,7 @@ void Viewer::my_visualize::draw_point(std::vector<cv::Mat>& pose, std::vector<cv
 
         for(int i=0;i<gtPose.size();i++)
 	    {
-                glVertex3f(gtPose[i][0], gtPose[i][1], gtPose[i][2]);
+                glVertex3d(gtPose.at(i)[0], gtPose.at(i)[1], gtPose.at(i)[2]);
         }
         glEnd();
 
@@ -140,9 +143,11 @@ void Viewer::my_visualize::draw_point(std::vector<cv::Mat>& pose, std::vector<cv
 
         for(int i = 0; i < allOfPoints.size(); i++)
 	    {
-           for(int j = 0; j < allOfPoints[i].cols; j++)
+           for(int j = 0; j < allOfPoints.at(i).mworldMapPointsV.size(); j++)
            {
-            glVertex3f(allOfPoints[i].at<float>(0,j), 0.0f, allOfPoints[i].at<float>(2,j));
+            glVertex3d(allOfPoints.at(i).mworldMapPointsV.at(j).x,
+                        allOfPoints.at(i).mworldMapPointsV.at(j).y,
+                        allOfPoints.at(i).mworldMapPointsV.at(j).z);
            }
         }
         glEnd();      
@@ -151,16 +156,18 @@ void Viewer::my_visualize::draw_point(std::vector<cv::Mat>& pose, std::vector<cv
         glBegin(GL_POINTS);
         glColor3f(1.0,0.0,1.0);
 
-        for(int i = 0; i < fovPoints.cols; i++)
+        for(int i = 0; i < fovPoints.size(); i++)
 	    {
-            glVertex3f(fovPoints.at<double>(0,i), 0.0f, fovPoints.at<double>(2,i));
+            glVertex3d(fovPoints.at(i).x, fovPoints.at(i).y, fovPoints.at(i).z);
         }
         glEnd();            
     }
 }
 
 // circle is before, rectangle is after
-cv::Mat Viewer::my_visualize::cv_draw_features(cv::Mat src, std::vector<cv::Point2f>& beforePoints, std::vector<cv::Point2f> afterPoints)
+cv::Mat Viewer::my_visualize::cv_draw_features(cv::Mat& src, 
+                                                std::vector<cv::Point2f>& beforePoints, 
+                                                std::vector<cv::Point2f>& afterPoints)
 {
     for (int i = 0; i < beforePoints.size(); i++)
 	{

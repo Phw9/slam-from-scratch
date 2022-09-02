@@ -7,14 +7,14 @@
 #include "opencv2/highgui.hpp"
 
 
-int main()
+int main(int argc, char** argv)
 {
     std::ofstream rawData ("./image.txt", rawData.out | rawData.trunc);
 	std::ifstream read ("./image.txt", read.in);
 	std::ifstream readGTtvec ("../image/GTpose.txt", readGTtvec.in);
     
+	std::vector<Eigen::Vector3d> readtvecOfGT;
 	std::vector<Eigen::Vector3d> tvecOfGT;
-
 	if(!read.is_open())
 	{
 		std::cerr << "file can't read image" << std::endl;
@@ -27,7 +27,7 @@ int main()
 
 	MakeTextFile(rawData, IMAGENUM);
 	FileRead(readImageName, read);
-	GTPoseRead(tvecOfGT, readGTtvec);
+	GTPoseRead(readtvecOfGT, readGTtvec);
 
 	mvo::Feature detector;
 	mvo::Feature trackerA, trackerB;
@@ -152,8 +152,10 @@ int main()
 					std::cout << i << "size : " << localTrackPointsA.at(i).mfeatures.size() << " ";
 				}													
 			}
+			tvecOfGT.emplace_back(readtvecOfGT.at(imageCurNum));
 			imageCurNum++;
 			realFrame++;
+			
 			cv::imshow("img", img);
 			if(cv::waitKey(0) == 27) break; // ESC key
 		} // 2view SFM, Track(A,B) make, generate LandMark = current localFeature size
@@ -278,12 +280,21 @@ int main()
 		img = pangolinViewer.cv_draw_features(img, localTrackPointsB.at(lTPB-1).mfeatures, 
 											localTrackPointsB.at(lTPB).mfeatures);		
 		}
-		std::cout << "imageCurnum: " << imageCurNum;
-		std::cout << " frame: " << realFrame <<std::endl;
-		std::cout << "lTPA: " << lTPA;
-		std::cout << " lTPB: " << lTPB << std::endl;
+
+		tvecOfGT.emplace_back(readtvecOfGT.at(imageCurNum));
 		imageCurNum++;
 		realFrame++;
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		d_cam.Activate(s_cam);
+		if(mapPointsA.mworldMapPointsV.size() > mapPointsB.mworldMapPointsV.size())
+		{
+			pangolinViewer.draw_point(globalTVec, tvecOfGT, globalLandMark, mapPointsA.mworldMapPointsV);
+		}
+		else
+		{
+			pangolinViewer.draw_point(globalTVec, tvecOfGT, globalLandMark, mapPointsB.mworldMapPointsV);
+		}
+    	pangolin::FinishFrame();
 		cv::imshow("img", img);
 		if(cv::waitKey(0) == 27) break; // ESC key
 	}
