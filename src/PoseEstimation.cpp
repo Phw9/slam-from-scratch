@@ -1,6 +1,6 @@
 #include <iostream>
-#include "../include/Feature.h"
-#include "../include/PoseEstimation.h"
+#include "Feature.h"
+#include "PoseEstimation.h"
 
 #include "opencv2/core.hpp"
 

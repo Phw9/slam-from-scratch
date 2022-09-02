@@ -1,4 +1,4 @@
-#include "../include/Triangulate.h"
+#include "Triangulate.h"
 
 mvo::Triangulate::Triangulate(): mworldMapPoints{cv::Mat()}
 {

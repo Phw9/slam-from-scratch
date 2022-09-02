@@ -9,8 +9,8 @@
 
 int main()
 {
-    std::ofstream rawData ("../main/image.txt", rawData.out | rawData.trunc);
-	std::ifstream read ("../main/image.txt", read.in);
+    std::ofstream rawData ("./image.txt", rawData.out | rawData.trunc);
+	std::ifstream read ("./image.txt", read.in);
 	std::ifstream readGTtvec ("../image/GTpose.txt", readGTtvec.in);
     
 	std::vector<Eigen::Vector3d> tvecOfGT;
@@ -23,7 +23,7 @@ int main()
 	std::deque<std::string> readImageName;
 	cv::Mat img;
 	int imageCurNum = 0;
-	int imageRealFrame = 0;
+	int realFrame = 0;
 
 	MakeTextFile(rawData, IMAGENUM);
 	FileRead(readImageName, read);
@@ -32,10 +32,10 @@ int main()
 	mvo::Feature detector;
 	mvo::Feature trackerA, trackerB;
 	std::vector<mvo::Feature> localTrackPointsA;
-	localTrackPointsA.reserve(500);
+	localTrackPointsA.reserve(3000);
 	int lTPA = 0;
 	std::vector<mvo::Feature> localTrackPointsB;
-	localTrackPointsB.reserve(500);
+	localTrackPointsB.reserve(3000);
 	int lTPB = 0;
 
 	mvo::StrctureFromMotion getEssential;
@@ -62,9 +62,8 @@ int main()
 
 	while(true)
 	{
-		while(imageRealFrame < 2*ESSENTIALFRAME)
+		while(realFrame < 2*ESSENTIALFRAME)
 		{
-			
 			img = cv::imread(readImageName.at(imageCurNum), 
 								cv::ImreadModes::IMREAD_UNCHANGED);
 			if (img.empty())
@@ -72,23 +71,21 @@ int main()
 				std::cerr << "frame upload failed" << std::endl;
 			}
 
-			if(imageRealFrame == 0)	// feature extract
+			if(realFrame == 0)	// feature extract
 			{
 				if(!trackerA.GoodFeaturesToTrack(img))
 				{	
 					std::cout << "new tracker A" << std::endl;
 				}
-				std::cout << imageCurNum << std::endl;
-				localTrackPointsA.emplace_back(std::move(trackerA));
+				localTrackPointsA.emplace_back(std::move(trackerA)); // lTPA=0
 			}	
-			else if(imageRealFrame == ESSENTIALFRAME-1)	// 2-viewSFM(1)
+			else if(realFrame == ESSENTIALFRAME-1)	// 2-viewSFM(1)
 			{
 				imageCurNum--;
 				getEssential.CreateEssentialMatrix(localTrackPointsA[0].mfeatures, localTrackPointsA[lTPA].mfeatures, intrinsicK);
 				getEssential.GetEssentialRt(getEssential.mEssential, intrinsicK,
 											localTrackPointsA[0].mfeatures, 
-											localTrackPointsA[lTPA-1].mfeatures);
-				
+											localTrackPointsA[lTPA].mfeatures);
 				getEssential.GetRTvec();
 				getEssential.CombineRt();
 				globalRTMat.emplace_back(std::move(getEssential.mCombineRt));
@@ -99,16 +96,17 @@ int main()
 				std::cout << globalRTMat[gP-1] << std::endl;
 				std::cout << globalRVec[gP-1] << std::endl;
 				std::cout << globalTVec[gP-1] << std::endl;
-				std::cout << "lTPA: " << lTPA << " imagenum: " << imageCurNum << std::endl;
+				std::cout << "lTPA: " << lTPA << " imagenum: " << imageCurNum << "realFrame: " << realFrame << std::endl;
 				std::cout << "gKF: " << gKF[gP-1] << std::endl;
-			}else if(imageRealFrame == 2*ESSENTIALFRAME-1)	// 2-viewSFM(2)
+			}
+			else if(realFrame == 2*ESSENTIALFRAME-1)	// 2-viewSFM(2)
 			{
-				imageCurNum--;
 				// 2-view SFM
+				imageCurNum--;
 				getEssential.CreateEssentialMatrix(localTrackPointsA[ESSENTIALFRAME-2].mfeatures, localTrackPointsA[lTPA].mfeatures, intrinsicK);
 				getEssential.GetEssentialRt(getEssential.mEssential, intrinsicK,
 											localTrackPointsA[ESSENTIALFRAME-2].mfeatures, 
-											localTrackPointsA[lTPA-1].mfeatures);
+											localTrackPointsA[lTPA].mfeatures);
 				getEssential.GetRTvec();
 				getEssential.CombineRt();
 				globalRTMat.emplace_back(std::move(getEssential.mCombineRt));
@@ -124,11 +122,6 @@ int main()
 				mapPointsA.MatToPoints3d();
 				globalLandMark.emplace_back(mapPointsA);
 				gLM++;
-				std::cout << "mapPointsA size: " << mapPointsA.mworldMapPoints.size() << std::endl;
-				std::cout << "mapPointsA vector size: " << mapPointsA.mworldMapPointsV.size() << std::endl;
-				std::cout << "localPointsA size: " << localTrackPointsA[gKF[1]].mfeatures.size() <<std::endl;
-				std::cout << "global landmark size: " << globalLandMark[gLM-1].mworldMapPoints.size() << std::endl;
-
 
 				// create Track B
 				if(!trackerB.GoodFeaturesToTrack(img))
@@ -136,42 +129,28 @@ int main()
 					std::cout << "new tracker B" << std::endl;
 				}
 				localTrackPointsB.emplace_back(std::move(trackerB));
-
-				std::cout << "TrackB size: " << localTrackPointsB[lTPB].mfeatures.size() << std::endl;
-				std::cout << "LandMark size : " << globalLandMark[gLM-1].mworldMapPoints.size() << std::endl;
-				std::cout << "local points size: " << localTrackPointsA[lTPA].mfeatures.size() << std::endl;
-
-				std::cout << globalRTMat[gP-1] << std::endl;
-				std::cout << globalRVec[gP-1] << std::endl;
-				std::cout << globalTVec[gP-1] << std::endl;
-				std::cout << "lTPA: " << lTPA << " imagenum: " << imageCurNum << std::endl;
-				std::cout << "gKF: " << gKF[gP-1] << std::endl;
 			}
 			else	// tracking
 			{
 				localTrackPointsA[lTPA].OpticalFlowPyrLK(cv::imread(readImageName.at(imageCurNum-1), 
 													cv::ImreadModes::IMREAD_UNCHANGED), img, trackerA);
 				localTrackPointsA.emplace_back(std::move(trackerA));
-				
-				cv::cvtColor(img, img, cv::ColorConversionCodes::COLOR_GRAY2BGR);
-				img = pangolinViewer.cv_draw_features(img, localTrackPointsA.at(lTPA).mfeatures, 
-													localTrackPointsA.at(lTPA+1).mfeatures);
-				
-				for(int i = 0; i < lTPA; i++)
-				{
-					ManageTrackPoints(localTrackPointsA.at(lTPA+1), localTrackPointsA.at(i), mapPointsA.mworldMapPointsV);
-					std::cout << "i: " << i << " ";
-				}
-				std::cout << std::endl;
-				std::cout << "lTPA: " << lTPA << std::endl;
 				lTPA++;
+				std::cout << lTPA << std::endl;
+				cv::cvtColor(img, img, cv::ColorConversionCodes::COLOR_GRAY2BGR);
+				img = pangolinViewer.cv_draw_features(img, localTrackPointsA.at(lTPA-1).mfeatures, 
+													localTrackPointsA.at(lTPA).mfeatures);
+				for(int i = 0; i < lTPA-1; i++)
+				{
+					ManageTrackPoints(localTrackPointsA.at(lTPA), localTrackPointsA.at(i), mapPointsA.mworldMapPointsV);
+					std::cout << i << "size : " << localTrackPointsA.at(i).mfeatures.size() << " ";
+				}													
 			}
 			imageCurNum++;
-			imageRealFrame++;
+			realFrame++;
 			cv::imshow("img", img);
 			if(cv::waitKey(0) == 27) break; // ESC key
 		} // 2view SFM, Track(A,B) make, generate LandMark = current localFeature size
-
 
 		// Start
 
@@ -184,7 +163,7 @@ int main()
 		if(localTrackPointsA[lTPA].mfeatures.size() < NUMOFPOINTS)
 		{
 			getPose.solvePnP(mapPointsA.mworldMapPointsV, 
-							localTrackPointsA[lTPA-1].mfeatures, intrinsicK);
+							localTrackPointsA[lTPA].mfeatures, intrinsicK);
 			getPose.GetRMatTPose();
 			getPose.CombineRt();
 			globalRTMat.emplace_back(std::move(getPose.mCombineRt));
@@ -199,19 +178,20 @@ int main()
 			mapPointsA.MatToPoints3d();
 			globalLandMark.emplace_back(mapPointsA);
 			gLM++;
-			std::cout << "hello" <<std::endl;
 			if(!trackerA.GoodFeaturesToTrack(img))
 			{	
 				std::cout << "new tracker A" << std::endl;
 			}
-			std::cout << "hello" <<std::endl;
+			std::cout << "hello" << std::endl;
+			std::cout << "localPointsA: " <<localTrackPointsA.at(lTPA).mfeatures.size() <<std::endl;
+			std::cout << "local A size : " << localTrackPointsA.size() << std::endl;
 			localTrackPointsA.clear();
 			std::cout << "hello" <<std::endl;
 			localTrackPointsA.emplace_back(std::move(trackerA));
 			std::cout << "hello" <<std::endl;
 			lTPA = 1;
 			imageCurNum++;
-			imageRealFrame++;
+			realFrame++;
 		}
 		if(localTrackPointsB[lTPB].mfeatures.size() < NUMOFPOINTS)
 		{
@@ -242,7 +222,7 @@ int main()
 			localTrackPointsB.emplace_back(std::move(trackerB));
 			lTPB = 1;
 			imageCurNum++;
-			imageRealFrame++;
+			realFrame++;
 		}
 
 		// tracking
@@ -250,36 +230,36 @@ int main()
 		localTrackPointsA[lTPA].OpticalFlowPyrLK(cv::imread(readImageName.at(imageCurNum-1), 
 													cv::ImreadModes::IMREAD_UNCHANGED), img, trackerA);
 				localTrackPointsA.emplace_back(std::move(trackerA));
-		for(int i = 0; i < lTPA; i++)
+		lTPA++;
+		for(int i = 0; i < lTPA-1; i++)
 		{
-			ManageTrackPoints(localTrackPointsA.at(lTPA+1), localTrackPointsA.at(i), mapPointsA.mworldMapPointsV);
+			ManageTrackPoints(localTrackPointsA.at(lTPA), localTrackPointsA.at(i), mapPointsA.mworldMapPointsV);
 		}
 		std::cout << std::endl;
 		std::cout << "mapPoints.size A: " << mapPointsA.mworldMapPointsV.size() << std::endl;
-		std::cout << "present local points size A: " << localTrackPointsA[lTPA+1].mfeatures.size() << std::endl;
-		std::cout << "before local points size A: " << localTrackPointsA[lTPA].mfeatures.size() << std::endl;
+		std::cout << "present local points size A: " << localTrackPointsA[lTPA].mfeatures.size() << std::endl;
+		std::cout << "before local points size A: " << localTrackPointsA[lTPA-1].mfeatures.size() << std::endl;
 
 		std::cout << std::endl;
 		std::cout << "lTPA: " << lTPA << std::endl;
-		std::cout << "lTPA size : " << localTrackPointsA[lTPA].mfeatures.size() << std::endl;
-		lTPA++;
+		std::cout << "lTPA feature size : " << localTrackPointsA[lTPA].mfeatures.size() << std::endl << std::endl;
 		
 		
 		localTrackPointsB[lTPB].OpticalFlowPyrLK(cv::imread(readImageName.at(imageCurNum-1), 
 													cv::ImreadModes::IMREAD_UNCHANGED), img, trackerB);
 		localTrackPointsB.emplace_back(std::move(trackerB));
-		for(int i = 0; i < lTPB; i++)
+		lTPB++;
+		for(int i = 0; i < lTPB-1; i++)
 		{
-			ManageTrackPoints(localTrackPointsB.at(lTPB+1), localTrackPointsB.at(i), mapPointsB.mworldMapPointsV);
+			ManageTrackPoints(localTrackPointsB.at(lTPB), localTrackPointsB.at(i), mapPointsB.mworldMapPointsV);
 		}
 		std::cout << "mapPoints.size B = " << mapPointsB.mworldMapPointsV.size() << std::endl;
-		std::cout << "present local points size B: " << localTrackPointsB[lTPB+1].mfeatures.size() << std::endl;
-		std::cout << "before local points size B: " << localTrackPointsB[lTPB].mfeatures.size() << std::endl;
+		std::cout << "present local points size B: " << localTrackPointsB[lTPB].mfeatures.size() << std::endl;
+		std::cout << "before local points size B: " << localTrackPointsB[lTPB-1].mfeatures.size() << std::endl;
 
 		std::cout << std::endl;
 		std::cout << "lTPB: " << lTPB << std::endl;
-		std::cout << "lTPB size : " << localTrackPointsB[lTPB].mfeatures.size() << std::endl << std::endl;
-		lTPB++;
+		std::cout << "lTPB feature size : " << localTrackPointsB[lTPB].mfeatures.size() << std::endl << std::endl;
 
 
 		// draw tracking points
@@ -297,7 +277,7 @@ int main()
 		}
 
 		imageCurNum++;
-		imageRealFrame++;
+		realFrame++;
 		cv::imshow("img", img);
 		if(cv::waitKey(0) == 27) break; // ESC key
 	}

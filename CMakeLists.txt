@@ -30,6 +30,9 @@ find_package(Pangolin REQUIRED)
 MESSAGE("OPENCV VERSION:")
 MESSAGE(${OpenCV_VERSION})
 
+message("PROJECT_SOURCE_DIR: ${PROJECT_SOURCE_DIR}")
+
+# set(LIBRARY_OUTPUT_DIRECTORY "./lib")
 
 include_directories(
    ${EIGEN3_INCLUDE_DIRS}
@@ -37,19 +40,27 @@ include_directories(
    ${OpenCV_INCLUDE_DIRS}
    ${OPENGL_INCLUDE_DIRS}
    ${Pangolin_INCLUDE_DIRS}
-   ${PROJECT_SOURCE_DIR}/include/
+   ${PROJECT_SOURCE_DIR}/include
+   )
+
+add_library(mine SHARED
+   ${PROJECT_SOURCE_DIR}/src/Feature.cpp
+   ${PROJECT_SOURCE_DIR}/src/KeyFrame.cpp
+   ${PROJECT_SOURCE_DIR}/src/PoseEstimation.cpp
+   ${PROJECT_SOURCE_DIR}/src/Triangulate.cpp
+   ${PROJECT_SOURCE_DIR}/src/Init.cpp
 )
+target_link_libraries(mine
+   ${EIGEN3_LIBS}
+   ${GLUT_LIBRARY}
+   ${OpenCV_LIBS}
+   ${OPENGL_LIBRARIES}
+   ${Pangolin_LIBRARIES}
+)
+
 
 add_executable(mvo
-   ${PROJECT_SOURCE_DIR}/main/main.cpp
-   ${PROJECT_SOURCE_DIR}/main/Init.cpp
-)
-
-target_link_libraries(mvo 
-		  ${PROJECT_SOURCE_DIR}/src/Feature.cpp
-        ${PROJECT_SOURCE_DIR}/src/KeyFrame.cpp
-		  ${PROJECT_SOURCE_DIR}/src/PoseEstimation.cpp
-        ${PROJECT_SOURCE_DIR}/src/Triangulate.cpp
+   ${PROJECT_SOURCE_DIR}/main.cpp
 )
 
 target_link_libraries(mvo
@@ -58,8 +69,7 @@ target_link_libraries(mvo
    ${OpenCV_LIBS}
    ${OPENGL_LIBRARIES}
    ${Pangolin_LIBRARIES}
-   pango_display
-   pango_python
+   mine
 )
 
 
