@@ -13,8 +13,8 @@ int main(int argc, char** argv)
 	std::ifstream read ("./image.txt", read.in);
 	std::ifstream readGTtvec ("../image/GTpose.txt", readGTtvec.in);
     
-	std::vector<Eigen::Vector3d> readtvecOfGT;
-	std::vector<Eigen::Vector3d> tvecOfGT;
+	std::vector<cv::Vec3f> readtvecOfGT;
+	std::vector<cv::Vec3f> tvecOfGT;
 	if(!read.is_open())
 	{
 		std::cerr << "file can't read image" << std::endl;
@@ -51,7 +51,7 @@ int main(int argc, char** argv)
 	std::vector<cv::Vec3d> globalTVec;
 	int gP = 0;
 	
-	Viewer::my_visualize pangolinViewer=Viewer::my_visualize(WINDOWWIDTH, WINDOWHEIGHT);
+	Viewer::MyVisualize pangolinViewer=Viewer::MyVisualize(WINDOWWIDTH, WINDOWHEIGHT);
     pangolinViewer.initialize();
     pangolin::OpenGlRenderState s_cam(
     pangolin::ProjectionMatrix(WINDOWWIDTH, WINDOWHEIGHT, VIEWPOINTF, VIEWPOINTF, 512, 389, 0.1, 1000),
@@ -82,20 +82,29 @@ int main(int argc, char** argv)
 			else if(realFrame == ESSENTIALFRAME-1)	// 2-viewSFM(1)
 			{
 				imageCurNum--;
+				std::cout << "hello" <<std::endl;
 				getEssential.CreateEssentialMatrix(localTrackPointsA[0].mfeatures, localTrackPointsA[lTPA].mfeatures, intrinsicK);
+				std::cout << "E: " << getEssential.mEssential <<std::endl;
 				getEssential.GetEssentialRt(getEssential.mEssential, intrinsicK,
 											localTrackPointsA[0].mfeatures, 
 											localTrackPointsA[lTPA].mfeatures);
+				std::cout << "mRotation: " << getEssential.mRotation <<std::endl;
+				std::cout << "mTranslation: " << getEssential.mTranslation <<std::endl;
 				getEssential.GetRTvec();
+				std::cout << "mrvec: " << getEssential.mrvec << std::endl;
+				std::cout << "mtvec: " << getEssential.mtvec << std::endl;
 				getEssential.CombineRt();
+				std::cout << "CombineRt: " << getEssential.mCombineRt << std::endl;
 				globalRTMat.emplace_back(std::move(getEssential.mCombineRt));
 				globalRVec.emplace_back(std::move(getEssential.mrvec));
 				globalTVec.emplace_back(std::move(getEssential.mtvec));
 				gP++;
-				gKF.emplace_back(imageCurNum);
 				std::cout << globalRTMat[gP-1] << std::endl;
-				std::cout << globalRVec[gP-1] << std::endl;
-				std::cout << globalTVec[gP-1] << std::endl;
+				std::cout << globalRVec[gP-1] << std::endl;				
+				std::cout << globalTVec[gP-1] << std::endl;				
+				gKF.emplace_back(imageCurNum);
+
+
 				std::cout << "lTPA: " << lTPA << " imagenum: " << imageCurNum << "realFrame: " << realFrame << std::endl;
 				std::cout << "gKF: " << gKF[gP-1] << std::endl;
 			}
@@ -122,13 +131,20 @@ int main(int argc, char** argv)
 				std::cout << "mm: " << mm << std::endl;
 
 				// Triangulate Landmark
-				mapPointsA.CalcWorldPoints(globalRTMat[gP-2], globalRTMat[gP-1],
-							localTrackPointsA[gKF[0]].mfeatures, localTrackPointsA[gKF[1]].mfeatures);
-				mapPointsA.ScalingPoints();
-				mapPointsA.MatToPoints3d();
+				if(!mapPointsA.CalcWorldPoints(globalRTMat[gP-2], globalRTMat[gP-1],
+							localTrackPointsA[gKF[0]].mfeatures, localTrackPointsA[gKF[1]].mfeatures))
+				{
+					std::cout << "fail scaling" << std::endl;
+				}
+				// std::cout << mapPointsA.mworldMapPoints << std:: endl;
+				if(!mapPointsA.ScalingPoints())
+				{
+					std::cout << "fail scaling" << std::endl;
+				}
+				std::cout << mapPointsA.mworldMapPoints << std:: endl;
+				mapPointsA.MatToPoints3f();
 				globalLandMark.emplace_back(mapPointsA);
 				gLM++;
-
 				// create Track B
 				if(!trackerB.GoodFeaturesToTrack(img))
 				{	
@@ -139,7 +155,7 @@ int main(int argc, char** argv)
 			else	// tracking
 			{
 				localTrackPointsA[lTPA].OpticalFlowPyrLK(cv::imread(readImageName.at(imageCurNum-1), 
-													cv::ImreadModes::IMREAD_UNCHANGED), img, trackerA);
+														cv::ImreadModes::IMREAD_UNCHANGED), img, trackerA);
 				localTrackPointsA.emplace_back(std::move(trackerA));
 				lTPA++;
 				std::cout << lTPA << std::endl;
@@ -152,7 +168,9 @@ int main(int argc, char** argv)
 					std::cout << i << "size : " << localTrackPointsA.at(i).mfeatures.size() << " ";
 				}													
 			}
+			std::cout << std::endl;
 			tvecOfGT.emplace_back(readtvecOfGT.at(imageCurNum));
+			std::cout << "tvecOfGT: " << tvecOfGT.at(imageCurNum) << std::endl;
 			imageCurNum++;
 			realFrame++;
 			
@@ -170,10 +188,17 @@ int main(int argc, char** argv)
 		// if num of Feature is less than NUMOFPOINTS, GFTT
 		if(localTrackPointsA[lTPA].mfeatures.size() < NUMOFPOINTS)
 		{
-			getPose.solvePnP(mapPointsA.mworldMapPointsV, 
-							localTrackPointsA[lTPA].mfeatures, intrinsicK);
+			std::cout << "hello1" <<std::endl;
+			if(!getPose.solvePnP(mapPointsA.mworldMapPointsV, 
+							localTrackPointsA[lTPA].mfeatures, intrinsicK))
+			{
+				std::cerr << "failed solvePnP" << std::endl;
+			}
+			std::cout << "hello2" <<std::endl;
 			getPose.GetRMatTPose();
+			std::cout << "hello3" <<std::endl;
 			getPose.CombineRt();
+			std::cout << "hello4" <<std::endl;
 			globalRTMat.emplace_back(std::move(getPose.mCombineRt));
 			globalRVec.emplace_back(std::move(getPose.mrvec));
 			globalTVec.emplace_back(std::move(getPose.mtvec));
@@ -183,7 +208,7 @@ int main(int argc, char** argv)
 			mapPointsA.CalcWorldPoints(globalRTMat.at(gP-2), globalRTMat.at(gP-1), 
 									localTrackPointsB.at(0).mfeatures, localTrackPointsB.at(lTPB).mfeatures);
 			mapPointsA.ScalingPoints();
-			mapPointsA.MatToPoints3d();
+			mapPointsA.MatToPoints3f();
 			globalLandMark.emplace_back(mapPointsA);
 			gLM++;
 			std::cout << "hello" << std::endl;
@@ -216,7 +241,7 @@ int main(int argc, char** argv)
 			mapPointsB.CalcWorldPoints(globalRTMat.at(gP-2), globalRTMat.at(gP-1), 
 									localTrackPointsA.at(0).mfeatures, localTrackPointsA.at(lTPA).mfeatures);
 			mapPointsB.ScalingPoints();
-			mapPointsB.MatToPoints3d();
+			mapPointsB.MatToPoints3f();
 			globalLandMark.emplace_back(mapPointsB);
 			gLM++;
 
@@ -282,6 +307,8 @@ int main(int argc, char** argv)
 		}
 
 		tvecOfGT.emplace_back(readtvecOfGT.at(imageCurNum));
+		std::cout << std::endl;
+		std::cout << tvecOfGT.at(imageCurNum) << std::endl;
 		imageCurNum++;
 		realFrame++;
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

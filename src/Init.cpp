@@ -26,10 +26,10 @@ void MakeTextFile(std::ofstream& fout, const int& imageNum)
 }
 
 
-void GTPoseRead(std::vector<Eigen::Vector3d>& v, std::ifstream& fin)
+void GTPoseRead(std::vector<cv::Vec3f>& v, std::ifstream& fin)
 {
 	char buf[100];
-    Eigen::Vector3d temp;
+    cv::Vec3f temp;
 	int numOfGT = 0;
 
 	double tempX, tempY, tempZ;
@@ -76,14 +76,14 @@ void GTPoseRead(std::vector<Eigen::Vector3d>& v, std::ifstream& fin)
 // */
 
 
-Viewer::my_visualize::my_visualize(int width,int height)
+Viewer::MyVisualize::MyVisualize(int width,int height)
 {
     this->window_width=width;
     this->window_height=height;
     this->window_ratio=(float)width/height;
 }
 
-void Viewer::my_visualize::initialize()
+void Viewer::MyVisualize::initialize()
 {
     pangolin::CreateWindowAndBind("TrajectoryViewer", window_width, window_height);
     glEnable(GL_DEPTH_TEST);
@@ -91,7 +91,7 @@ void Viewer::my_visualize::initialize()
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
-void Viewer::my_visualize::active_cam()
+void Viewer::MyVisualize::active_cam()
 {
     pangolin::OpenGlRenderState s_cam(
     pangolin::ProjectionMatrix(window_width, window_height, 20, 20, 512, 389, 0.1, 1000),
@@ -104,10 +104,10 @@ void Viewer::my_visualize::active_cam()
 }
 
 // pts1: GT Pose, pts2: Pose, pts3: 3D Points, pts4: FOV of 3D Points
-void draw_point(const std::vector<cv::Vec3d>& tvec, 
-                const std::vector<Eigen::Vector3d>& gtPose,
+void Viewer::MyVisualize::draw_point(const std::vector<cv::Vec3d>& tvec, 
+                const std::vector<cv::Vec3f>& gtPose,
                 const std::vector<mvo::Triangulate>& allOfPoints,
-                const std::vector<cv::Point3d>& fovPoints)
+                const std::vector<cv::Point3f>& fovPoints)
 {
     glClearColor(1.0f,1.0f,1.0f,1.0f);
     if(tvec.size()==0 || gtPose.size()==0)
@@ -124,6 +124,7 @@ void draw_point(const std::vector<cv::Vec3d>& tvec,
         for(int i=0;i<tvec.size();i++)
 	    {
             glVertex3d(tvec.at(i)[0], tvec.at(i)[1], tvec.at(i)[2]);
+            // std::cout << "tvec" << i << ": " << tvec.at(i)[0] << ", " << tvec.at(i)[1] << ", " << tvec.at(i)[2] << std::endl;
         }
         glEnd();
 
@@ -133,7 +134,8 @@ void draw_point(const std::vector<cv::Vec3d>& tvec,
 
         for(int i=0;i<gtPose.size();i++)
 	    {
-                glVertex3d(gtPose.at(i)[0], gtPose.at(i)[1], gtPose.at(i)[2]);
+            glVertex3f(gtPose.at(i)[0], gtPose.at(i)[1], gtPose.at(i)[2]);
+            // std::cout << "gtPose" << i << ": " << gtPose.at(i)[0] << ", " << gtPose.at(i)[1] << ", " << gtPose.at(i)[2] << std::endl;
         }
         glEnd();
 
@@ -145,9 +147,10 @@ void draw_point(const std::vector<cv::Vec3d>& tvec,
 	    {
            for(int j = 0; j < allOfPoints.at(i).mworldMapPointsV.size(); j++)
            {
-            glVertex3d(allOfPoints.at(i).mworldMapPointsV.at(j).x,
+            glVertex3f(allOfPoints.at(i).mworldMapPointsV.at(j).x,
                         allOfPoints.at(i).mworldMapPointsV.at(j).y,
                         allOfPoints.at(i).mworldMapPointsV.at(j).z);
+            // std::cout << "allOfPoints" << i << ": " << allOfPoints.at(i).mworldMapPointsV.at(j).x << ", " << allOfPoints.at(i).mworldMapPointsV.at(j).y << ", " <<allOfPoints.at(i).mworldMapPointsV.at(j).z << std::endl;
            }
         }
         glEnd();      
@@ -158,14 +161,15 @@ void draw_point(const std::vector<cv::Vec3d>& tvec,
 
         for(int i = 0; i < fovPoints.size(); i++)
 	    {
-            glVertex3d(fovPoints.at(i).x, fovPoints.at(i).y, fovPoints.at(i).z);
+            glVertex3f(fovPoints.at(i).x, fovPoints.at(i).y, fovPoints.at(i).z);
+            // std::cout << "fovPoints" << i << ": " << fovPoints.at(i).x << ", " << fovPoints.at(i).y << ", " << fovPoints.at(i).z << std::endl;
         }
         glEnd();            
     }
 }
 
 // circle is before, rectangle is after
-cv::Mat Viewer::my_visualize::cv_draw_features(cv::Mat& src, 
+cv::Mat Viewer::MyVisualize::cv_draw_features(cv::Mat& src, 
                                                 std::vector<cv::Point2f>& beforePoints, 
                                                 std::vector<cv::Point2f>& afterPoints)
 {

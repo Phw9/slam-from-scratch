@@ -83,7 +83,7 @@ void ManageTrackPoints(const mvo::Feature& present, mvo::Feature& before)
         }
     }
 }
-void ManageTrackPoints(const mvo::Feature& present, mvo::Feature& before, std::vector<cv::Point3d>& mapPoints)
+void ManageTrackPoints(const mvo::Feature& present, mvo::Feature& before, std::vector<cv::Point3f>& mapPoints)
 {
     int indexCorrection = 0;
     

@@ -4,7 +4,7 @@
 #include "opencv2/core.hpp"
 
 #define IMAGENUM 4540
-#define ESSENTIALFRAME 2
+#define ESSENTIALFRAME 6
 #define WINDOWWIDTH 1024
 #define WINDOWHEIGHT 768
 #define VIEWPOINTF 2000.0

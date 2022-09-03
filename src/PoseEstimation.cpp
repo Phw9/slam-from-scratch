@@ -46,8 +46,10 @@ bool mvo::StrctureFromMotion::CombineRt()
 void mvo::StrctureFromMotion::GetRTvec()
 {
     cv::Rodrigues(mRotation, mrvec);
-    for (int j = 0; j < mTranslation.rows; j++) {
-		for (int i = 0; i < mTranslation.cols; i++) {
+    for (int j = 0; j < mTranslation.rows; j++)
+    {
+		for (int i = 0; i < mTranslation.cols; i++)
+        {
 			mtvec[j] = mTranslation.at<double>(j, i);
 		}
 	}
@@ -56,28 +58,32 @@ void mvo::StrctureFromMotion::GetRTvec()
 mvo::PoseEstimation::PoseEstimation(): 
             mRotation{cv::Mat()}, mTranslation{cv::Mat()}, mCombineRt{cv::Mat()}{};
 
-bool mvo::PoseEstimation::solvePnP(const std::vector<cv::Point3d>& objectPoints,
-                    const std::vector<cv::Point2f>& imagePoints,
-                    const cv::Mat& cameraIntrinsic)
+bool mvo::PoseEstimation::solvePnP(const std::vector<cv::Point3f>& objectPoints,
+                                    const std::vector<cv::Point2f>& imagePoints,
+                                    const cv::Mat& cameraIntrinsic)
 {   
-    std::vector<cv::Point3f> v;
-    cv::Point3f temp;
-    for(int i = 0; i<objectPoints.size(); i++)
-    {
-       temp.x= (float)objectPoints.at(i).x;
-       temp.y= (float)objectPoints.at(i).y;
-       temp.z= (float)objectPoints.at(i).z;
-       v.emplace_back(std::move(temp));
-    }
-    cv::Mat inlier;
-    std::cout<< v.size() << ", " << imagePoints.size() <<std::endl;
+    // std::vector<cv::Point3f> v;
+    // cv::Point3f temp;
+    // for(int i = 0; i<objectPoints.size(); i++)
+    // {
+    //    temp.x= (float)objectPoints.at(i).x;
+    //    temp.y= (float)objectPoints.at(i).y;
+    //    temp.z= (float)objectPoints.at(i).z;
+    //    v.emplace_back(std::move(temp));
+    // }
     
-    if(!cv::solvePnPRansac(v, imagePoints, cameraIntrinsic, cv::Mat(), mrvec, mTranslation,false, 100, 3.0F, 0.99, inlier, cv::SOLVEPNP_ITERATIVE))
+    if(!cv::solvePnP(objectPoints, imagePoints, cameraIntrinsic, cv::Mat(), mrvec, mTranslation))
     {
         std::cerr <<"Can't solve PnP" << std::endl;
         return false;
     }
-    std::cout<<inlier.rows<<std::endl;
+
+    // cv::Mat inlier;
+    // if(!cv::solvePnPRansac(objectPoints, imagePoints, cameraIntrinsic, cv::Mat(), mrvec, mTranslation, false, 100, 3.0F, 0.99, inlier, cv::SOLVEPNP_ITERATIVE))
+    // {
+    //     std::cerr <<"Can't solve PnP" << std::endl;
+    //     return false;
+    // }
     return true;
 }
 
@@ -86,8 +92,10 @@ void mvo::PoseEstimation::GetRMatTPose()
     cv::Rodrigues(mrvec, mRotation);
     cv::Mat temp = -mRotation.inv()*mTranslation;
 
-    for (int j = 0; j < mTranslation.rows; j++) {
-		for (int i = 0; i < mTranslation.cols; i++) {
+    for (int j = 0; j < mTranslation.rows; j++)
+    {
+		for (int i = 0; i < mTranslation.cols; i++)
+        {
 			mtvec[j] = temp.at<double>(j, i);
 		}
 	}
