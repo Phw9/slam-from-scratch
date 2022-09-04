@@ -78,6 +78,7 @@ int main(int argc, char** argv)
 					std::cout << "new tracker A" << std::endl;
 				}
 				localTrackPointsA.emplace_back(std::move(trackerA));
+				lTPA++;
 			}	
 			else if(realFrame == ESSENTIALFRAME-1)	// 2-viewSFM(1)
 			{
@@ -85,9 +86,7 @@ int main(int argc, char** argv)
 				std::cout << "hello" <<std::endl;
 				getEssential.CreateEssentialMatrix(localTrackPointsA[0].mfeatures, localTrackPointsA[lTPA].mfeatures, intrinsicK);
 				std::cout << "E: " << getEssential.mEssential <<std::endl;
-				getEssential.GetEssentialRt(getEssential.mEssential, intrinsicK,
-											localTrackPointsA[0].mfeatures, 
-											localTrackPointsA[lTPA].mfeatures);
+				getEssential.GetEssentialRt(getEssential.mEssential, intrinsicK, localTrackPointsA[0].mfeatures, localTrackPointsA[lTPA].mfeatures);
 				std::cout << "mRotation: " << getEssential.mRotation <<std::endl;
 				std::cout << "mTranslation: " << getEssential.mTranslation <<std::endl;
 				getEssential.GetRTvec();
@@ -156,6 +155,9 @@ int main(int argc, char** argv)
 			{
 				localTrackPointsA[lTPA].OpticalFlowPyrLK(cv::imread(readImageName.at(imageCurNum-1), 
 														cv::ImreadModes::IMREAD_UNCHANGED), img, trackerA);
+				getEssential.CreateEssentialMatrix(localTrackPointsA[0].mfeatures, localTrackPointsA[lTPA].mfeatures, intrinsicK);
+				std::cout << getEssential.mEssential << std::endl;
+				
 				localTrackPointsA.emplace_back(std::move(trackerA));
 				lTPA++;
 				std::cout << lTPA << std::endl;
