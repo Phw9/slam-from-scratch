@@ -49,18 +49,6 @@ namespace mvo
         cv::Vec3d mtvec;
     };
 
-    cv::Mat MultiplyMat(const cv::Mat& R1, const cv::Mat& R2)
-    {
-        float data[] = {0,0,0,1};
-        cv::Mat rowVec(cv::Size(1,4), CV_32F, data);
-        cv::Mat temp1 = R1;
-        cv::Mat temp2 = R2;
-        temp1.push_back(R1);
-        temp2.push_back(R2);
-        std::cout << "temp1: " << temp1 << std::endl;
-        std::cout << "temp2: " << temp2 << std::endl;
-        std::cout << "t2*t1: " << temp2*temp1 << std::endl;
-        return temp2*temp1;
-    }
+    cv::Mat MultiplyMat(const cv::Mat& R1, const cv::Mat& R2);
 } //namespace mvo
 

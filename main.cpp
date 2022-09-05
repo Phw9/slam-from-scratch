@@ -79,33 +79,6 @@ int main(int argc, char** argv)
 				}
 				localTrackPointsA.emplace_back(std::move(trackerA));
 				lTPA++;
-			}	
-			else if(realFrame == ESSENTIALFRAME-1)	// 2-viewSFM(1)
-			{
-				imageCurNum--;
-				std::cout << "hello" <<std::endl;
-				getEssential.CreateEssentialMatrix(localTrackPointsA[0].mfeatures, localTrackPointsA[lTPA].mfeatures, intrinsicK);
-				std::cout << "E: " << getEssential.mEssential <<std::endl;
-				getEssential.GetEssentialRt(getEssential.mEssential, intrinsicK, localTrackPointsA[0].mfeatures, localTrackPointsA[lTPA].mfeatures);
-				std::cout << "mRotation: " << getEssential.mRotation <<std::endl;
-				std::cout << "mTranslation: " << getEssential.mTranslation <<std::endl;
-				getEssential.GetRTvec();
-				std::cout << "mrvec: " << getEssential.mrvec << std::endl;
-				std::cout << "mtvec: " << getEssential.mtvec << std::endl;
-				getEssential.CombineRt();
-				std::cout << "CombineRt: " << getEssential.mCombineRt << std::endl;
-				globalRTMat.emplace_back(std::move(getEssential.mCombineRt));
-				globalRVec.emplace_back(std::move(getEssential.mrvec));
-				globalTVec.emplace_back(std::move(getEssential.mtvec));
-				gP++;
-				std::cout << globalRTMat[gP-1] << std::endl;
-				std::cout << globalRVec[gP-1] << std::endl;				
-				std::cout << globalTVec[gP-1] << std::endl;				
-				gKF.emplace_back(imageCurNum);
-
-
-				std::cout << "lTPA: " << lTPA << " imagenum: " << imageCurNum << "realFrame: " << realFrame << std::endl;
-				std::cout << "gKF: " << gKF[gP-1] << std::endl;
 			}
 			else if(realFrame == 2*ESSENTIALFRAME-1)	// 2-viewSFM(2)
 			{
@@ -155,12 +128,23 @@ int main(int argc, char** argv)
 			{
 				localTrackPointsA[lTPA].OpticalFlowPyrLK(cv::imread(readImageName.at(imageCurNum-1), 
 														cv::ImreadModes::IMREAD_UNCHANGED), img, trackerA);
-				getEssential.CreateEssentialMatrix(localTrackPointsA[0].mfeatures, localTrackPointsA[lTPA].mfeatures, intrinsicK);
+				getEssential.CreateEssentialMatrix(localTrackPointsA[lTPA-1].mfeatures, localTrackPointsA[lTPA].mfeatures, intrinsicK);
 				std::cout << getEssential.mEssential << std::endl;
-				
+				getEssential.GetEssentialRt(getEssential.mEssential, intrinsicK,
+											localTrackPointsA[lTPA-1].mfeatures, 
+											localTrackPointsA[lTPA].mfeatures);
+				getEssential.GetRTvec();
+				getEssential.CombineRt();
+				globalRTMat.emplace_back(std::move(getEssential.mCombineRt));
+				globalRVec.emplace_back(std::move(getEssential.mrvec));
+				globalTVec.emplace_back(std::move(getEssential.mtvec));
+				std::cout << "globalRTMat: " << globalRTMat[gP] << std::endl;
+				std::cout << "globalRVec: " << globalRVec[gP] << std::endl;
+				std::cout << "globalTVec: " << globalTVec[gP] << std::endl;
+
 				localTrackPointsA.emplace_back(std::move(trackerA));
-				lTPA++;
-				std::cout << lTPA << std::endl;
+
+				std::cout << "lTPAbefore++: " << lTPA << std::endl;
 				cv::cvtColor(img, img, cv::ColorConversionCodes::COLOR_GRAY2BGR);
 				img = pangolinViewer.cv_draw_features(img, localTrackPointsA.at(lTPA-1).mfeatures, 
 													localTrackPointsA.at(lTPA).mfeatures);
@@ -168,7 +152,9 @@ int main(int argc, char** argv)
 				{
 					ManageTrackPoints(localTrackPointsA.at(lTPA), localTrackPointsA.at(i), mapPointsA.mworldMapPointsV);
 					std::cout << i << "size : " << localTrackPointsA.at(i).mfeatures.size() << " ";
-				}													
+				}
+				lTPA++;
+				gP++;												
 			}
 			std::cout << std::endl;
 			tvecOfGT.emplace_back(readtvecOfGT.at(imageCurNum));
