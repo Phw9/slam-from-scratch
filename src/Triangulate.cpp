@@ -30,9 +30,7 @@ bool mvo::Triangulate::ScalingPoints()
             mworldMapPoints.at<float>(j,i) = mworldMapPoints.at<float>(j,i) / mworldMapPoints.at<float>(mworldMapPoints.rows-1,i);
         }
     }
-    std::cout << "hello1" << std::endl;
     if(mworldMapPoints.at<float>(mworldMapPoints.rows-1,0) != 1.0f) return false;
-    std::cout << "hello122" << std::endl;
     return true;
 }
 
@@ -45,6 +43,6 @@ void mvo::Triangulate::MatToPoints3f()
         temp.y = mworldMapPoints.at<float>(1, i);
         temp.z = mworldMapPoints.at<float>(2, i);
         mworldMapPointsV.emplace_back(std::move(temp));
+        // std::cout << temp.x << " " << temp.y << " " << temp.z << std::endl;
 	}
-    std::cout << "hello12" << std::endl;
 }

@@ -4,7 +4,7 @@
 #include "opencv2/core.hpp"
 
 #define IMAGENUM 4540
-#define ESSENTIALFRAME 6
+#define ESSENTIALFRAME 5
 #define WINDOWWIDTH 1024
 #define WINDOWHEIGHT 768
 #define VIEWPOINTF 2000.0
@@ -14,13 +14,17 @@
 
 #define NUMOFPOINTS 200
 
-float cameraX = 6.018873000000e+02;
-float cameraY = 1.831104000000e+02;
-float focalLength = 7.070912000000e+02;
-float data[] = {focalLength, 0, cameraX,
-                0, focalLength, cameraY,
+float cameraXf = 6.018873000000e+02; double cameraXd = 6.018873000000e+02;
+float cameraYf = 1.831104000000e+02; double cameraYd = 1.831104000000e+02;
+float focalLengthf = 7.070912000000e+02; double focalLengthd = 7.070912000000e+02;
+float fdata[] = {focalLengthf, 0, cameraXf,
+                0, focalLengthf, cameraYf,
                 0, 0, 1};
-static cv::Mat intrinsicK(cv::Size(3, 3), CV_32FC1, data);
+double data[] = {focalLengthd, 0, cameraXd,
+                0, focalLengthd, cameraYd,
+                0, 0, 1};
+static cv::Mat intrinsicKf(cv::Size(3, 3), CV_32FC1, fdata);
+static cv::Mat intrinsicKd(cv::Size(3, 3), CV_64FC1, data);
 
 // cv::Mat mm = cv::Mat::zeros(cv::Size(3,3), CV_64F);
 // cv::Mat mv = cv::Mat(cv::Size(3,1),CV_64F,1);

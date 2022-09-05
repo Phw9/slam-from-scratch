@@ -58,7 +58,7 @@ void mvo::StrctureFromMotion::GetRTvec()
 mvo::PoseEstimation::PoseEstimation(): 
             mRotation{cv::Mat()}, mTranslation{cv::Mat()}, mCombineRt{cv::Mat()}{};
 
-bool mvo::PoseEstimation::solvePnP(const std::vector<cv::Point3f>& objectPoints,
+void mvo::PoseEstimation::solvePnP(const std::vector<cv::Point3f>& objectPoints,
                                     const std::vector<cv::Point2f>& imagePoints,
                                     const cv::Mat& cameraIntrinsic)
 {   
@@ -72,19 +72,13 @@ bool mvo::PoseEstimation::solvePnP(const std::vector<cv::Point3f>& objectPoints,
     //    v.emplace_back(std::move(temp));
     // }
     
-    if(!cv::solvePnP(objectPoints, imagePoints, cameraIntrinsic, cv::Mat(), mrvec, mTranslation))
+    if(!cv::solvePnPRansac(objectPoints, imagePoints, cameraIntrinsic, cv::Mat(), mrvec, mTranslation, false, 100, 3.0F, 0.99, minlier, cv::SOLVEPNP_ITERATIVE))
     {
         std::cerr <<"Can't solve PnP" << std::endl;
-        return false;
+        
     }
-
-    // cv::Mat inlier;
-    // if(!cv::solvePnPRansac(objectPoints, imagePoints, cameraIntrinsic, cv::Mat(), mrvec, mTranslation, false, 100, 3.0F, 0.99, inlier, cv::SOLVEPNP_ITERATIVE))
-    // {
-    //     std::cerr <<"Can't solve PnP" << std::endl;
-    //     return false;
-    // }
-    return true;
+    std::cout << "inlier: " << minlier << std::endl;
+    std::cout << "inlier.rows: " << minlier.rows << std::endl;
 }
 
 void mvo::PoseEstimation::GetRMatTPose()
@@ -117,14 +111,14 @@ bool mvo::PoseEstimation::CombineRt()
 
 cv::Mat mvo::MultiplyMat(const cv::Mat& R1, const cv::Mat& R2)
 {
-        float data[] = {0,0,0,1};
-        cv::Mat rowVec(cv::Size(1,4), CV_32F, data);
+        double data[] = {0,0,0,1};
+        cv::Mat rowVec(cv::Size(4,1), CV_64F, data);
         cv::Mat temp1 = R1;
         cv::Mat temp2 = R2;
-        temp1.push_back(R1);
-        temp2.push_back(R2);
-        std::cout << "temp1: " << temp1 << std::endl;
-        std::cout << "temp2: " << temp2 << std::endl;
-        std::cout << "t2*t1: " << temp2*temp1 << std::endl;
-        return temp2*temp1;
+        cv::Mat temp3;
+        temp1.push_back(rowVec);
+        temp2.push_back(rowVec);
+        temp3= temp1*temp2;
+        temp3.pop_back();
+        return temp3;
 }

@@ -43,7 +43,7 @@ bool mvo::Feature::GoodFeaturesToTrack(const cv::Mat& src)
 bool mvo::Feature::OpticalFlowPyrLK(const cv::Mat& src1, const cv::Mat& src2, mvo::Feature& next)
 {
     cv::Size winSize = cv::Size(21,21);
-    cv::TermCriteria termcrit = cv::TermCriteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, 30, 0.01);
+    cv::TermCriteria termcrit = cv::TermCriteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, 30, 0.11);
     
     cv::calcOpticalFlowPyrLK(src1, src2, mfeatures, next.mfeatures, next.mstatus, next.merr,
                              winSize, 3, termcrit, 0, 0.0001);
@@ -105,5 +105,18 @@ void ManageTrackPoints(const mvo::Feature& present, mvo::Feature& before, std::v
             before.mfeatures.erase(before.mfeatures.begin() + (i-indexCorrection));
             indexCorrection++;
         }
+    }
+}
+void ManageInlier(std::vector<mvo::Feature>& features2d, std::vector<cv::Point3f>& mapPoints3d, const cv::Mat& inlier)
+{
+    for(int i = 0; i < inlier.rows; i++)
+    {
+        int id = inlier.at<int>(i,0);
+        std::cout << "id: " << id << std::endl;
+        for(int j = 0; j < features2d.size(); j++)
+        {
+            features2d.at(j).mfeatures.erase(features2d.at(j).mfeatures.begin()+id-1);
+        }
+        mapPoints3d.erase(mapPoints3d.begin()+id-1);
     }
 }

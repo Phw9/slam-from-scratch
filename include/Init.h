@@ -45,12 +45,13 @@ namespace Viewer
             void active_cam();
 
             // pts1: GT Pose, pts2: Pose, pts3: 3D Points, pts4: FOV of 3D Points
-            void draw_point(const std::vector<cv::Vec3d>& tvec, 
+            void DrawPoint(const std::vector<cv::Vec3d>& tvec, 
                             const std::vector<cv::Vec3f>& gtPose,
                             const std::vector<mvo::Triangulate>& allOfPoints, 
                             const std::vector<cv::Point3f>& fovPoints);
+            void DrawTemp(const std::vector<cv::Vec3f>& gtPose);
 
             // circle is before, rectangle is after
-            cv::Mat cv_draw_features(cv::Mat& src, std::vector<cv::Point2f>& beforePoints, std::vector<cv::Point2f>& afterPoints);
+            cv::Mat DrawFeatures(cv::Mat& src, std::vector<cv::Point2f>& beforePoints, std::vector<cv::Point2f>& afterPoints);
     };
 }//namespace Viewer
