@@ -77,15 +77,17 @@ void mvo::PoseEstimation::solvePnP(const std::vector<cv::Point3f>& objectPoints,
         std::cerr <<"Can't solve PnP" << std::endl;
         
     }
-    std::cout << "inlier: " << minlier << std::endl;
     std::cout << "inlier.rows: " << minlier.rows << std::endl;
 }
 
 void mvo::PoseEstimation::GetRMatTPose()
 {
     cv::Rodrigues(mrvec, mRotation);
-    cv::Mat temp = -mRotation.inv()*mTranslation;
-
+    std::cout << mRotation << std::endl;
+    cv::Mat temp = -mRotation.inv();
+    std::cout << temp << std::endl;
+    temp = temp*mTranslation;
+    std::cout << "after temp: " << std::endl << temp << std::endl;
     for (int j = 0; j < mTranslation.rows; j++)
     {
 		for (int i = 0; i < mTranslation.cols; i++)

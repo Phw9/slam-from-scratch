@@ -20,8 +20,6 @@ namespace mvo
         std::vector<uchar> mstatus;
         std::vector<float> merr;
         std::vector<cv::Point2f> mfeatures;
-        cv::Mat mdesc;
-        std::vector<cv::KeyPoint> mfastKeyPoints;
     };
 }//namespace mvo
 

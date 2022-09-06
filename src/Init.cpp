@@ -102,19 +102,6 @@ void Viewer::MyVisualize::active_cam()
                                 .SetHandler(new pangolin::Handler3D(s_cam)); 
     d_cam.Activate(s_cam);
 }
-void Viewer::MyVisualize::DrawTemp(const std::vector<cv::Vec3f>& gtPose)
-{
-    glClearColor(1.0f,1.0f,1.0f,1.0f);
-    for(int i=0;i<gtPose.size();i++)
-	    {
-            glVertex3f(gtPose.at(i)[0], gtPose.at(i)[1], gtPose.at(i)[2]);
-            // std::cout << "gtPose" << i << ": " << gtPose.at(i)[0] << ", " << gtPose.at(i)[1] << ", " << gtPose.at(i)[2] << std::endl;
-        }
-    glEnd();
-    glPointSize(1);
-    glBegin(GL_POINTS);
-    glColor3f(0.0,0.0,0.0);
-}
 
 // pts1: GT Pose, pts2: Pose, pts3: 3D Points, pts4: FOV of 3D Points
 void Viewer::MyVisualize::DrawPoint(const std::vector<cv::Vec3d>& tvec, 

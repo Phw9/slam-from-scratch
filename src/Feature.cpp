@@ -1,28 +1,26 @@
 #include <iostream>
 #include "Feature.h"
 
-mvo::Feature::Feature(): mdesc{cv::Mat()}
+mvo::Feature::Feature()
 {
-    mfastKeyPoints.clear();
     mfeatures.clear();
     mstatus.clear();
     merr.clear();
-    mfeatures.clear();
 }
 
 
 
-bool mvo::Feature::CornerFAST(const cv::Mat& src)
-{
-    // threshold는 120이고 비최대 억제를 수행한다
-    cv::FAST(src, mfastKeyPoints, 120, true);
-    if (mfastKeyPoints.empty())
-    {
-        std::cerr << "Failed FAST detection" << std::endl;
-        return false;
-    }
-    return true;
-}
+// bool mvo::Feature::CornerFAST(const cv::Mat& src)
+// {
+//     // threshold는 120이고 비최대 억제를 수행한다
+//     cv::FAST(src, mfastKeyPoints, 120, true);
+//     if (mfastKeyPoints.empty())
+//     {
+//         std::cerr << "Failed FAST detection" << std::endl;
+//         return false;
+//     }
+//     return true;
+// }
 
 bool mvo::Feature::GoodFeaturesToTrack(const cv::Mat& src)
 {
@@ -112,7 +110,6 @@ void ManageInlier(std::vector<mvo::Feature>& features2d, std::vector<cv::Point3f
     for(int i = 0; i < inlier.rows; i++)
     {
         int id = inlier.at<int>(i,0);
-        std::cout << "id: " << id << std::endl;
         for(int j = 0; j < features2d.size(); j++)
         {
             features2d.at(j).mfeatures.erase(features2d.at(j).mfeatures.begin()+id-1);

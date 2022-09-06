@@ -28,6 +28,7 @@ void MakeTextFile(std::ofstream& fout, const int& imageNum);
 void GTPoseRead(std::vector<cv::Vec3f>& v, std::ifstream& fin);
 
 
+
 namespace Viewer
 {
     class MyVisualize
@@ -49,8 +50,6 @@ namespace Viewer
                             const std::vector<cv::Vec3f>& gtPose,
                             const std::vector<mvo::Triangulate>& allOfPoints, 
                             const std::vector<cv::Point3f>& fovPoints);
-            void DrawTemp(const std::vector<cv::Vec3f>& gtPose);
-
             // circle is before, rectangle is after
             cv::Mat DrawFeatures(cv::Mat& src, std::vector<cv::Point2f>& beforePoints, std::vector<cv::Point2f>& afterPoints);
     };
