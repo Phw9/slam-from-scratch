@@ -12,6 +12,7 @@ namespace mvo
     {
     public:
         Feature();
+        ~Feature();
         
         bool CornerFAST(const cv::Mat& src);
         bool GoodFeaturesToTrack(const cv::Mat& src);

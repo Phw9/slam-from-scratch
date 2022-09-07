@@ -7,6 +7,13 @@ mvo::Feature::Feature()
     mstatus.clear();
     merr.clear();
 }
+// mvo::Feature::~Feature()
+// {
+//     std::cout << "destrutor" << std::endl;
+//     mfeatures.clear();
+//     mstatus.clear();
+//     merr.clear();
+// }
 
 
 
@@ -107,13 +114,45 @@ void ManageTrackPoints(const mvo::Feature& present, mvo::Feature& before, std::v
 }
 void ManageInlier(std::vector<mvo::Feature>& features2d, std::vector<cv::Point3f>& mapPoints3d, const cv::Mat& inlier)
 {
+    int interval;
+    std::vector<int> idv;
+    int ilast = inlier.at<int>(inlier.rows-1,0);
+    int flast = features2d.at(0).mfeatures.size() - 1;
+    idv.reserve(3000);
+    idv.emplace_back(inlier.at<int>(0,0)-1);
     for(int i = 0; i < inlier.rows; i++)
     {
-        int id = inlier.at<int>(i,0);
-        for(int j = 0; j < features2d.size(); j++)
+        idv.emplace_back(inlier.at<int>(i,0));
+    }
+
+    for(int i=0; i<idv.size()-1; i++)
+    {
+        interval = idv.at(i+1) - idv.at(i)-1;
+        for(int j = i; j<interval+i; j++)
         {
-            features2d.at(j).mfeatures.erase(features2d.at(j).mfeatures.begin()+id-1);
+            for(int k = 0; k < features2d.size(); k++)
+            {
+                features2d.at(k).mfeatures.erase(features2d.at(k).mfeatures.begin()+j);
+            }
+            mapPoints3d.erase(mapPoints3d.begin()+j);  
         }
-        mapPoints3d.erase(mapPoints3d.begin()+id-1);
+
+        if(i == idv.size()-2 && flast-ilast != 0)
+        {
+            for(int l = 0; l < features2d.size(); l++)
+            {
+                for(int h = 0; h < flast-ilast; h++)
+                {
+                    features2d.at(l).mfeatures.pop_back();
+                    features2d.at(l).mfeatures.pop_back();
+                }
+            }
+            for(int h = 0; h < flast-ilast; h++)
+            {
+                mapPoints3d.pop_back();
+                mapPoints3d.pop_back();
+            }
+            break;
+        }
     }
 }

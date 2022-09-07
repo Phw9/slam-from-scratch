@@ -214,9 +214,12 @@ int main(int argc, char** argv)
 		}
 
 		// tracking
+		std::cout << "when" << std::endl;
 		localTrackPointsA[lTPA].OpticalFlowPyrLK(cv::imread(readImageName.at(imageCurNum-1), 
 													cv::ImreadModes::IMREAD_UNCHANGED), img, trackerA1);
+													std::cout << "when" << std::endl;
 		localTrackPointsA.emplace_back(std::move(trackerA1));
+		std::cout << "when" << std::endl;
 		lTPA++;
 		for(int i = 0; i < lTPA-1; i++)
 		{
@@ -304,7 +307,6 @@ int main(int argc, char** argv)
 		realFrame++;
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		d_cam.Activate(s_cam);
-
 		if(mapPointsA.mworldMapPointsV.size() > mapPointsB.mworldMapPointsV.size())
 		{
 			pangolinViewer.DrawPoint(globalTVec, tvecOfGT, globalLandMark, mapPointsA.mworldMapPointsV);
