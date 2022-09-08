@@ -18,6 +18,7 @@
 #include <pangolin/gl/viewport.h>
 #include <pangolin/utils/range.h>
 
+#include <algorithm>
 #include <functional>
 #include <iostream>
 #include <stdio.h>

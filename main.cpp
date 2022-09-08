@@ -71,7 +71,7 @@ int main(int argc, char** argv)
 			{
 				std::cerr << "frame upload failed" << std::endl;
 			}
-
+			
 			if(realFrame == 0)	// feature extract
 			{
 				if(!trackerA1.GoodFeaturesToTrack(img))
@@ -164,76 +164,73 @@ int main(int argc, char** argv)
 		// if(keyframe gen){ generate Pose, MapPoints, new Track}
 
 		// if num of Feature is less than NUMOFPOINTS, GFTT
-		if(localTrackPointsA[lTPA].mfeatures.size() < NUMOFPOINTS)
+		if(localTrackPointsA[lTPA].mfeatures.size() < NUMOFPOINTS || localTrackPointsB[lTPB].mfeatures.size() < NUMOFPOINTS)
 		{
-			imageCurNum--;
-			std::cout << "hello1" <<std::endl;
+			if(localTrackPointsA[lTPA].mfeatures.size() < NUMOFPOINTS)
+			{
+				// triangulate
+				mapPointsB.CalcWorldPoints(globalRTMat.at(gP-2), globalRTMat.at(gP-1), 
+										localTrackPointsB.at(0).mfeatures, localTrackPointsB.at(lTPB).mfeatures);
+				mapPointsB.ScalingPoints(); mapPointsB.MatToPoints3f();
+				globalLandMark.emplace_back(mapPointsB);
+				gLM++;
 
-			// triangulate
-			mapPointsB.CalcWorldPoints(globalRTMat.at(gP-2), globalRTMat.at(gP-1), 
-									localTrackPointsB.at(0).mfeatures, localTrackPointsB.at(lTPB).mfeatures);
-			mapPointsB.ScalingPoints();
-			mapPointsB.MatToPoints3f();
-			globalLandMark.emplace_back(mapPointsB);
-			gLM++;
-			std::cout << "hello" << std::endl;
-			localTrackPointsA.clear();
-			std::cout << "hello" << std::endl;
-			if(!trackerA1.GoodFeaturesToTrack(img))
-			{	
-				std::cout << "new tracker A" << std::endl;
+				localTrackPointsA.clear();
+				lTPA = 1;
+				std::cout << "local A size : " << localTrackPointsA.size() << std::endl;
+				std::cout << "localTrackPointsA.mfeature size : " << localTrackPointsA.at(0).mfeatures.size() <<std::endl;
+				std::cout << "localTrackPointsB.size(): " << localTrackPointsB.size() << std::endl;
+				std::cout << "localTrackPointsB.at(lTPB).feature size(): " << localTrackPointsB.at(lTPB).mfeatures.size() << std::endl;
 			}
-			std::cout << "hello" << std::endl;
-			std::cout << "local A size : " << localTrackPointsA.size() << std::endl;
-			localTrackPointsA.emplace_back(std::move(trackerA1));
-			lTPA = 1;
-		}
-		if(localTrackPointsA[lTPB].mfeatures.size() < NUMOFPOINTS)
-		{
-			imageCurNum--;
-			std::cout << "hello1B" <<std::endl;
 
-			// triangulate
-			mapPointsA.CalcWorldPoints(globalRTMat.at(gP-2), globalRTMat.at(gP-1), 
-									localTrackPointsA.at(0).mfeatures, localTrackPointsA.at(lTPA).mfeatures);
-			mapPointsA.ScalingPoints();
-			mapPointsA.MatToPoints3f();
-			globalLandMark.emplace_back(mapPointsA);
-			gLM++;
-			std::cout << "hello" << std::endl;
-			localTrackPointsB.clear();
-			std::cout << "hello" << std::endl;
-			if(!trackerB1.GoodFeaturesToTrack(img))
-			{	
-				std::cout << "new tracker A" << std::endl;
+			if(localTrackPointsB[lTPB].mfeatures.size() < NUMOFPOINTS)
+			{
+				std::cout << "hello1B" <<std::endl;
+
+				// triangulate
+				mapPointsA.CalcWorldPoints(globalRTMat.at(gP-2), globalRTMat.at(gP-1), 
+										localTrackPointsA.at(0).mfeatures, localTrackPointsA.at(lTPA).mfeatures);
+				mapPointsA.ScalingPoints(); mapPointsA.MatToPoints3f();
+				globalLandMark.emplace_back(mapPointsA);
+				gLM++;
+				std::vector<mvo::Feature> localTrackPointsB;
+				mvo::Feature trackerB1;
+				std::cout << "hello2B" << std::endl;
+				if(!trackerB1.GoodFeaturesToTrack(img))
+				{	
+					std::cout << "new tracker A" << std::endl;
+				}
+				std::cout << "local B size : " << localTrackPointsB.size() << std::endl;
+				localTrackPointsA.emplace_back(std::move(trackerB1));
+				lTPB = 1;
 			}
-			std::cout << "hello" << std::endl;
-			std::cout << "local B size : " << localTrackPointsB.size() << std::endl;
-			localTrackPointsA.emplace_back(std::move(trackerB1));
-			lTPB = 1;
+			imageCurNum--;
 		}
 
 		// tracking
-		std::cout << "when" << std::endl;
 		localTrackPointsA[lTPA].OpticalFlowPyrLK(cv::imread(readImageName.at(imageCurNum-1), 
 													cv::ImreadModes::IMREAD_UNCHANGED), img, trackerA1);
-													std::cout << "when" << std::endl;
 		localTrackPointsA.emplace_back(std::move(trackerA1));
-		std::cout << "when" << std::endl;
-		lTPA++;
+		lTPA++;	
+		std::cout << "localTrackPointsA size: " << localTrackPointsA.size() << std::endl;
+		std::cout << "localTrackPointsA.mfeature size : " << localTrackPointsA.at(0).mfeatures.size() <<std::endl;
 		for(int i = 0; i < lTPA-1; i++)
 		{
 			ManageTrackPoints(localTrackPointsA.at(lTPA), localTrackPointsA.at(i), mapPointsA.mworldMapPointsV);
 		}
+		std::cout << "ddd:" << std::endl;
+		localTrackPointsA.clear();
+
 		
 		if(mapPointsA.mworldMapPointsV.size() == localTrackPointsA.at(lTPA).mfeatures.size())
 		{
-			getPose.solvePnP(mapPointsA.mworldMapPointsV, localTrackPointsA.at(lTPA).mfeatures, intrinsicKd);
 			std::cout << "before inlier lTPA size: " << localTrackPointsA.at(lTPA).mfeatures.size() << std::endl;
 			std::cout << "before inlier mappoints size: " << mapPointsA.mworldMapPointsV.size() << std::endl;
+			getPose.solvePnP(mapPointsA.mworldMapPointsV, localTrackPointsA.at(lTPA).mfeatures, intrinsicKd);
 			ManageInlier(localTrackPointsA, mapPointsA.mworldMapPointsV, getPose.minlier);
 			std::cout << "after inlier lTPA size: " << localTrackPointsA.at(lTPA).mfeatures.size() << std::endl;
-			std::cout << "after inlier mappoints size: " << mapPointsA.mworldMapPointsV.size() << std::endl;		
+			std::cout << "after inlier mappoints size: " << mapPointsA.mworldMapPointsV.size() << std::endl;	
+
 			getPose.GetRMatTPose(); getPose.CombineRt();
 			globalRTMat.emplace_back(std::move(getPose.mCombineRt));
 			globalRVec.emplace_back(std::move(getPose.mrvec));

@@ -116,7 +116,7 @@ void Viewer::MyVisualize::DrawPoint(const std::vector<cv::Vec3d>& tvec,
     }
     else
 	{
-        //빨간색(첫번째) : 구한포즈, 파란색(두번째) : 지티포즈, 검은색(세번째): 모든 맵 , 자홍색(네번째) : 현재 키프레임의 맵
+        //빨간색(첫번째) : 구한포즈, 파란색(두번째) : 지티포즈, 검은색(세번째): 모든 맵포인트 , 자홍색(네번째) : 현재 키프레임의 맵포인트
         glPointSize(3);
         glBegin(GL_POINTS);
         glColor3f(1.0,0.0,0.0); //

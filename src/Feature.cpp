@@ -7,13 +7,14 @@ mvo::Feature::Feature()
     mstatus.clear();
     merr.clear();
 }
-// mvo::Feature::~Feature()
-// {
-//     std::cout << "destrutor" << std::endl;
-//     mfeatures.clear();
-//     mstatus.clear();
-//     merr.clear();
-// }
+mvo::Feature::~Feature()
+{
+    std::cout << "destrutor1" << std::endl;
+    mfeatures.clear();
+    mstatus.clear();
+    merr.clear();
+    std::cout << "destrutor2" << std::endl;
+}
 
 
 
