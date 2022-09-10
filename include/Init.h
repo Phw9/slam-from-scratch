@@ -3,6 +3,8 @@
 #include <deque>
 #include <fstream>
 #include <string>
+#include <vector>
+#include <map>
 #include "opencv2/core.hpp"
 #include "opencv2/imgproc.hpp"
 #include "eigen3/Eigen/Dense"
