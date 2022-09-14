@@ -123,7 +123,7 @@ void Viewer::MyVisualize::DrawPoint(const std::vector<cv::Vec3d>& tvec,
 
         for(int i=0;i<tvec.size();i++)
 	    {
-            glVertex3d(tvec.at(i)[0], tvec.at(i)[1], tvec.at(i)[2]);
+            glVertex3d(tvec.at(i)[0], 0, tvec.at(i)[2]);
             // std::cout << "tvec" << i << ": " << tvec.at(i)[0] << ", " << tvec.at(i)[1] << ", " << tvec.at(i)[2] << std::endl;
         }
         glEnd();
@@ -134,7 +134,7 @@ void Viewer::MyVisualize::DrawPoint(const std::vector<cv::Vec3d>& tvec,
 
         for(int i=0;i<gtPose.size();i++)
 	    {
-            glVertex3f(gtPose.at(i)[0], gtPose.at(i)[1], gtPose.at(i)[2]);
+            glVertex3f(gtPose.at(i)[0], 0, gtPose.at(i)[2]);
             // std::cout << "gtPose" << i << ": " << gtPose.at(i)[0] << ", " << gtPose.at(i)[1] << ", " << gtPose.at(i)[2] << std::endl;
         }
         glEnd();
@@ -148,7 +148,7 @@ void Viewer::MyVisualize::DrawPoint(const std::vector<cv::Vec3d>& tvec,
            for(int j = 0; j < allOfPoints.at(i).mworldMapPointsV.size(); j++)
            {
             glVertex3f(allOfPoints.at(i).mworldMapPointsV.at(j).x,
-                        allOfPoints.at(i).mworldMapPointsV.at(j).y,
+                        0,
                         allOfPoints.at(i).mworldMapPointsV.at(j).z);
             // std::cout << "allOfPoints" << i << ": " << allOfPoints.at(i).mworldMapPointsV.at(j).x << ", " << allOfPoints.at(i).mworldMapPointsV.at(j).y << ", " <<allOfPoints.at(i).mworldMapPointsV.at(j).z << std::endl;
            }
@@ -161,7 +161,7 @@ void Viewer::MyVisualize::DrawPoint(const std::vector<cv::Vec3d>& tvec,
 
         for(int i = 0; i < fovPoints.size(); i++)
 	    {
-            glVertex3f(fovPoints.at(i).x, fovPoints.at(i).y, fovPoints.at(i).z);
+            glVertex3f(fovPoints.at(i).x, 0, fovPoints.at(i).z);
             // std::cout << "fovPoints" << i << ": " << fovPoints.at(i).x << ", " << fovPoints.at(i).y << ", " << fovPoints.at(i).z << std::endl;
         }
         glEnd();            

@@ -77,7 +77,7 @@ void mvo::PoseEstimation::solvePnP(const std::vector<cv::Point3f>& objectPoints,
         std::cerr <<"Can't solve PnP" << std::endl;
         
     }
-    std::cout << minlier << std::endl;
+    // std::cout << minlier << std::endl;
     std::cout << "inlier.rows: " << minlier.rows << std::endl;
 }
 

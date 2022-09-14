@@ -9,6 +9,7 @@
 
 int main(int argc, char** argv)
 {
+	cv::Vec<double,1> temp;
     std::ofstream rawData ("./image.txt", rawData.out | rawData.trunc);
 	std::ifstream read ("./image.txt", read.in);
 	std::ifstream readGTtvec ("../image/GTpose.txt", readGTtvec.in);
@@ -167,15 +168,18 @@ int main(int argc, char** argv)
 		// if(keyframe gen){ generate Pose, MapPoints, new Track}
 
 		// if num of Feature is less than NUMOFPOINTS, GFTT
-		if(localTrackPointsA[lTPA].mfeatures.size() < NUMOFPOINTS || localTrackPointsB[lTPB].mfeatures.size() < NUMOFPOINTS)
+		// while(localTrackPointsA[lTPA].mfeatures.size() < NUMOFPOINTS || localTrackPointsB[lTPB].mfeatures.size() < NUMOFPOINTS)
+		while(localTrackPointsA[lTPA].mfeatures.size() < NUMOFPOINTS || localTrackPointsB[lTPB].mfeatures.size() < NUMOFPOINTS || temp[0] > ANGULARVELOCITY)
 		{
 			imageCurNum--;
 			img = cv::imread(readImageName.at(imageCurNum), 
 						cv::ImreadModes::IMREAD_UNCHANGED);
-			if(localTrackPointsA[lTPA].mfeatures.size() < NUMOFPOINTS)
+			if(localTrackPointsA[lTPA].mfeatures.size() < NUMOFPOINTS || mapPointsA.mworldMapPointsV.size() == localTrackPointsA.at(lTPA).mfeatures.size())
 			{
+				std::cout << "ㅇㅇㅇNewTrack Aㅇㅇㅇ" << std::endl;
 				// triangulate
-				mapPointsB.CalcWorldPoints(intrinsicKd*globalRTMat.at(gP-2), intrinsicKd*globalRTMat.at(gP-1), 
+				mapPointsB.mworldMapPointsV.clear();
+				mapPointsB.CalcWorldPoints(intrinsicKd*globalRTMat.at(gP-lTPB), intrinsicKd*globalRTMat.at(gP-1), 
 										localTrackPointsB.at(0).mfeatures, localTrackPointsB.at(lTPB).mfeatures);
 				mapPointsB.ScalingPoints(); mapPointsB.MatToPoints3f();
 				std::cout << "mapPointsB.mworldMapPointsV.size: " <<mapPointsB.mworldMapPointsV.size() << std::endl;
@@ -192,23 +196,23 @@ int main(int argc, char** argv)
 				std::cout << "localTrackPointsA.mfeature size : " << localTrackPointsA.at(0).mfeatures.size() <<std::endl;
 				std::cout << "localTrackPointsB size : " << localTrackPointsB.size() << std::endl;
 				std::cout << "localTrackPointsB.mfeature size : " << localTrackPointsB.at(lTPB).mfeatures.size() << std::endl;
+				imageCurNum++;
+				img = cv::imread(readImageName.at(imageCurNum), 
+							cv::ImreadModes::IMREAD_UNCHANGED);
+				break;
 			}
 
-			if(localTrackPointsB[lTPB].mfeatures.size() < NUMOFPOINTS)
+			if(localTrackPointsB[lTPB].mfeatures.size() < NUMOFPOINTS || mapPointsB.mworldMapPointsV.size() == localTrackPointsB.at(lTPB).mfeatures.size())
 			{
-				std::cout << "hello1B" <<std::endl;
-
+				std::cout << "ㅇㅇㅇNewTrack Bㅇㅇㅇ" << std::endl;
 				// triangulate
-				mapPointsA.CalcWorldPoints(intrinsicKd*globalRTMat.at(gP-2), intrinsicKd*globalRTMat.at(gP-1), 
+				mapPointsA.mworldMapPointsV.clear();
+				mapPointsA.CalcWorldPoints(intrinsicKd*globalRTMat.at(gP-lTPA), intrinsicKd*globalRTMat.at(gP-1), 
 										localTrackPointsA.at(0).mfeatures, localTrackPointsA.at(lTPA).mfeatures);
 				mapPointsA.ScalingPoints(); mapPointsA.MatToPoints3f();
-				std::cout << "hello1B" <<std::endl;
 				globalLandMark.emplace_back(mapPointsA);
-				std::cout << "hello1B" <<std::endl;
 				gLM++;
-				std::cout << "hello1B" <<std::endl;
 				localTrackPointsB.clear();
-				std::cout << "hello1B" <<std::endl;
 				if(!trackerB1.GoodFeaturesToTrack(img))
 				{	
 					std::cout << "new tracker B" << std::endl;
@@ -218,11 +222,16 @@ int main(int argc, char** argv)
 				std::cout << "localTrackPointsB size : " << localTrackPointsB.size() << std::endl;
 				std::cout << "localTrackPointsB.mfeature size : " << localTrackPointsB.at(0).mfeatures.size() <<std::endl;
 				std::cout << "localTrackPointsA.size : " << localTrackPointsA.size() << std::endl;
+				std::cout << "localTrackPointsA.mfeature0 size : " << localTrackPointsA.at(0).mfeatures.size() << std::endl;
 				std::cout << "localTrackPointsA.mfeature size : " << localTrackPointsA.at(lTPA).mfeatures.size() << std::endl;
+				imageCurNum++;
+				img = cv::imread(readImageName.at(imageCurNum), 
+							cv::ImreadModes::IMREAD_UNCHANGED);
+				break;
 			}
-			imageCurNum++;
-			img = cv::imread(readImageName.at(imageCurNum), 
-						cv::ImreadModes::IMREAD_UNCHANGED);
+			// imageCurNum++;
+			// img = cv::imread(readImageName.at(imageCurNum), 
+			// 			cv::ImreadModes::IMREAD_UNCHANGED);
 		}
 
 		// tracking
@@ -248,6 +257,7 @@ int main(int argc, char** argv)
 		
 		if(mapPointsA.mworldMapPointsV.size() == localTrackPointsA.at(lTPA).mfeatures.size())
 		{
+			std::cout << "ㅁㅁㅁㅁㅁTrackA SolvePnPㅁㅁㅁㅁㅁㅁ" << std::endl;
 			getPose.solvePnP(mapPointsA.mworldMapPointsV, localTrackPointsA.at(lTPA).mfeatures, intrinsicKd);
 			// std::cout << "before inlier lTPA size: " << localTrackPointsA.at(lTPA).mfeatures.size() << std::endl;
 			// std::cout << "before inlier mappoints size: " << mapPointsA.mworldMapPointsV.size() << std::endl;
@@ -261,7 +271,13 @@ int main(int argc, char** argv)
 			globalTVec.emplace_back(std::move(getPose.mtvec));
 			gP++;
 			std::cout << std::endl;
-			std::cout << "mrvec: " << globalRVec.at(gP-1) << std::endl;
+			
+
+			temp = globalRVec.at(gP-1).t() * globalRVec.at(gP-1);
+
+			
+
+			std::cout << "mrvec: " << globalRVec.at(gP-1) << "  " << temp << std::endl;
 			std::cout << "mtvec: " << globalTVec.at(gP-1) << std::endl;
 			std::cout << "mapPoints.size A: " << mapPointsA.mworldMapPointsV.size() << std::endl;
 			std::cout << "present local points size A: " << localTrackPointsA[lTPA].mfeatures.size() << std::endl;
@@ -295,7 +311,7 @@ int main(int argc, char** argv)
 
 		if(mapPointsB.mworldMapPointsV.size() == localTrackPointsB.at(lTPB).mfeatures.size())
 		{
-			std::cout << "HH" << std::endl;
+			std::cout << "ㅁㅁㅁㅁㅁTrackB SolvePnPㅁㅁㅁㅁㅁㅁ" << std::endl;
 			getPose.solvePnP(mapPointsB.mworldMapPointsV, localTrackPointsB.at(lTPB).mfeatures, intrinsicKd);
 			// std::cout << "before inlier lTPB size: " << localTrackPointsB.at(lTPB).mfeatures.size() << std::endl;
 			// std::cout << "before inlier mappoints size: " << mapPointsB.mworldMapPointsV.size() << std::endl;
@@ -307,8 +323,11 @@ int main(int argc, char** argv)
 			globalRVec.emplace_back(std::move(getPose.mrvec));
 			globalTVec.emplace_back(std::move(getPose.mtvec));
 			gP++;
+
+			temp = globalRVec.at(gP-1).t() * globalRVec.at(gP-1);
+
 			std::cout << std::endl;
-			std::cout << "mrvec: " << globalRVec.at(gP-1) << std::endl;
+			std::cout << "mrvec: " << globalRVec.at(gP-1) << "  " << temp << std::endl;
 			std::cout << "mtvec: " << globalTVec.at(gP-1) << std::endl;
 			std::cout << "mapPoints.size B: " << mapPointsB.mworldMapPointsV.size() << std::endl;
 			std::cout << "present local points size B: " << localTrackPointsA[lTPB].mfeatures.size() << std::endl;
@@ -334,8 +353,9 @@ int main(int argc, char** argv)
 		}
 		tvecOfGT.emplace_back(readtvecOfGT.at(imageCurNum));
 		std::cout << std::endl;
-		std::cout << "mtvec: " << globalTVec.at(gP-1) << std::endl;
+		std::cout << "mtvec: " << globalTVec.at(gP-1) << "  " << globalTVec.size() << std::endl;
 		std::cout << "tvecOfGT: " << tvecOfGT.at(imageCurNum) << std::endl;
+		std::cout << "-------------------------" << std::endl;
 		imageCurNum++;
 		realFrame++;
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
