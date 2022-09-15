@@ -44,7 +44,6 @@ int main(int argc, char** argv)
 	mvo::PoseEstimation getPose;
 
 	std::vector<int> mapStats;
-	cv::Mat cam2World;
 	mvo::Triangulate mapPointsA, mapPointsB;
 	std::vector<cv::Point3f> localMapPointsA, localMapPointsB;
 	std::vector<mvo::Triangulate> globalLandMark;
@@ -109,9 +108,8 @@ int main(int argc, char** argv)
 					std::cerr << "fail scaling" << std::endl;
 				}
 				mapPointsA.MatToPoints3f();	mapStats.clear();
-				m2 = m2.t(), m2.pop_back();
-				m2 = m2.t(), cam2World=m2;
-				if(!ManageMinusZ(mapPointsA, cam2World, mapStats))
+				m2 = m2.t(), m2.pop_back(); m2 = m2.t();
+				if(!ManageMinusZ(mapPointsA, m2, mapStats))
 				{
 					std::cerr << "failed ManageMinusZ A" << std::endl;
 				}
@@ -201,9 +199,9 @@ int main(int argc, char** argv)
 				{
 					std::cerr << "failed scaling" << std::endl;
 				}
-				mapPointsB.MatToPoints3f(); mapStats.clear(); cam2World=getPose.mRotation;
+				mapPointsB.MatToPoints3f(); mapStats.clear();
 				std::cout << "mapPointsB.mworldMapPointsV.size: " <<mapPointsB.mworldMapPointsV.size() << std::endl;
-				if(!ManageMinusZ(mapPointsB, cam2World, mapStats))
+				if(!ManageMinusZ(mapPointsB, getPose.mRotation, mapStats))
 				{
 					std::cerr << "failed ManageMinusZ B" << std::endl;
 				}
@@ -243,8 +241,8 @@ int main(int argc, char** argv)
 				{
 					std::cerr << "failed scaling" << std::endl;
 				}
-				mapPointsA.MatToPoints3f(); mapStats.clear(); cam2World = getPose.mRotation;
-				if(!ManageMinusZ(mapPointsA, cam2World, mapStats))
+				mapPointsA.MatToPoints3f(); mapStats.clear();
+				if(!ManageMinusZ(mapPointsA, getPose.mRotation, mapStats))
 				{
 					std::cerr << "failed ManageMinusZ A" << std::endl;
 				}

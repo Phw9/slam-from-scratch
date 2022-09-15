@@ -28,8 +28,3 @@ double data[] = {focalLengthd, 0, cameraXd,
                 0, 0, 1};
 static cv::Mat intrinsicKf(cv::Size(3, 3), CV_32FC1, fdata);
 static cv::Mat intrinsicKd(cv::Size(3, 3), CV_64FC1, data);
-
-// cv::Mat mm = cv::Mat::zeros(cv::Size(3,3), CV_64F);
-// cv::Mat mv = cv::Mat(cv::Size(3,1),CV_64F,1);
-// m.push_back(mv);
-// mm = mm.t();
