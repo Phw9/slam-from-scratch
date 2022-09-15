@@ -14,8 +14,8 @@
 
 #define NUMOFPOINTS 200
 
-#define ANGULARVELOCITY 0.8
-#define NUMOFINLIER 80
+#define ANGULARVELOCITY 0.2
+#define NUMOFINLIER 90
 
 float cameraXf = 6.018873000000e+02; double cameraXd = 6.018873000000e+02;
 float cameraYf = 1.831104000000e+02; double cameraYd = 1.831104000000e+02;

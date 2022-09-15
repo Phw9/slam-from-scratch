@@ -104,16 +104,24 @@ bool ManageMapPoints(const std::vector<uchar>& mstatus, std::vector<cv::Point3f>
     }
     return false;
 }
-bool ManageMinusZ(mvo::Triangulate& map, std::vector<int>& id)
+bool ManageMinusZ(mvo::Triangulate& map, cv::Mat& R, std::vector<int>& id)
 {
+    double pdata[] = {0,0,1};
+    cv::Mat tt(cv::Size(1,3), CV_64F, pdata);
+    cv::Mat temp = R.inv()*tt;
+    std::cout << "-R.inv()*tt: " << temp << std::endl;
+    std::cout << "0: " << (float)temp.at<double>(0,0) << std::endl;
+    std::cout << "1: " << (float)temp.at<double>(0,1) << std::endl;
+    std::cout << "2: " << (float)temp.at<double>(0,2) << std::endl;
     for(int i = 0; i < map.mworldMapPointsV.size(); i++)
     {
-        if(map.mworldMapPointsV.at(i).z<0)
+        if(map.mworldMapPointsV.at(i).z<(float)temp.at<double>(0,2))
         {
             id.emplace_back(i);
             map.mworldMapPointsV.erase(map.mworldMapPointsV.begin()+i);
         }
     }
+    std::cout << "id size() : " << id.size() << std::endl;
     if(map.mworldMapPointsV.size() == 0) return false;
 
     return true;

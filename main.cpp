@@ -44,11 +44,12 @@ int main(int argc, char** argv)
 	mvo::PoseEstimation getPose;
 
 	std::vector<int> mapStats;
+	cv::Mat cam2World;
 	mvo::Triangulate mapPointsA, mapPointsB;
 	std::vector<cv::Point3f> localMapPointsA, localMapPointsB;
 	std::vector<mvo::Triangulate> globalLandMark;
 	int gLM = 0;
-	std::vector<int> gKF;
+	int gKF = 0;
 
 	cv::Vec<double,1> angularVelocity;
 	std::vector<cv::Mat> globalRTMat;
@@ -108,7 +109,9 @@ int main(int argc, char** argv)
 					std::cerr << "fail scaling" << std::endl;
 				}
 				mapPointsA.MatToPoints3f();	mapStats.clear();
-				if(!ManageMinusZ(mapPointsA, mapStats))
+				m2 = m2.t(), m2.pop_back();
+				m2 = m2.t(), cam2World=m2;
+				if(!ManageMinusZ(mapPointsA, cam2World, mapStats))
 				{
 					std::cerr << "failed ManageMinusZ A" << std::endl;
 				}
@@ -126,6 +129,7 @@ int main(int argc, char** argv)
 				localTrackPointsB.emplace_back(std::move(trackerB1));
 				std::cout << "lTPA size: " << localTrackPointsA.size() << std::endl;
 				std::cout << "lTPA: " << lTPA << std::endl;
+				gKF++;
 			}
 			else	// tracking
 			{
@@ -177,10 +181,11 @@ int main(int argc, char** argv)
 
 		// if num of Feature is less than NUMOFPOINTS, GFTT
 		// while(localTrackPointsA[lTPA].mfeatures.size() < NUMOFPOINTS || localTrackPointsB[lTPB].mfeatures.size() < NUMOFPOINTS)
-		while(localTrackPointsA[lTPA].mfeatures.size() < NUMOFPOINTS || 
+		while((localTrackPointsA.size()>3 && localTrackPointsB.size()>3) && 
+				(localTrackPointsA[lTPA].mfeatures.size() < NUMOFPOINTS || 
 				localTrackPointsB[lTPB].mfeatures.size() < NUMOFPOINTS || 
 				angularVelocity[0] > ANGULARVELOCITY ||
-				(getPose.minlier.rows < NUMOFINLIER && gP>10))
+				(getPose.minlier.rows < NUMOFINLIER && gP>ESSENTIALFRAME)))
 		{
 			imageCurNum--;
 			img = cv::imread(readImageName.at(imageCurNum), 
@@ -196,9 +201,9 @@ int main(int argc, char** argv)
 				{
 					std::cerr << "failed scaling" << std::endl;
 				}
-				mapPointsB.MatToPoints3f(); mapStats.clear();
+				mapPointsB.MatToPoints3f(); mapStats.clear(); cam2World=getPose.mRotation;
 				std::cout << "mapPointsB.mworldMapPointsV.size: " <<mapPointsB.mworldMapPointsV.size() << std::endl;
-				if(!ManageMinusZ(mapPointsB, mapStats))
+				if(!ManageMinusZ(mapPointsB, cam2World, mapStats))
 				{
 					std::cerr << "failed ManageMinusZ B" << std::endl;
 				}
@@ -223,6 +228,7 @@ int main(int argc, char** argv)
 				imageCurNum++;
 				img = cv::imread(readImageName.at(imageCurNum), 
 							cv::ImreadModes::IMREAD_UNCHANGED);
+				gKF++;
 				break;
 			}
 
@@ -237,8 +243,8 @@ int main(int argc, char** argv)
 				{
 					std::cerr << "failed scaling" << std::endl;
 				}
-				mapPointsA.MatToPoints3f(); mapStats.clear();
-				if(!ManageMinusZ(mapPointsA, mapStats))
+				mapPointsA.MatToPoints3f(); mapStats.clear(); cam2World = getPose.mRotation;
+				if(!ManageMinusZ(mapPointsA, cam2World, mapStats))
 				{
 					std::cerr << "failed ManageMinusZ A" << std::endl;
 				}
@@ -264,6 +270,7 @@ int main(int argc, char** argv)
 				imageCurNum++;
 				img = cv::imread(readImageName.at(imageCurNum), 
 							cv::ImreadModes::IMREAD_UNCHANGED);
+				gKF++;
 				break;
 			}
 			// imageCurNum++;
@@ -301,7 +308,6 @@ int main(int argc, char** argv)
 			// ManageInlier(localTrackPointsA, mapPointsA.mworldMapPointsV, getPose.minlier);
 			// std::cout << "after inlier lTPA size: " << localTrackPointsA.at(lTPA).mfeatures.size() << std::endl;
 			// std::cout << "after inlier mappoints size: " << mapPointsA.mworldMapPointsV.size() << std::endl;	
-
 			getPose.GetRMatTPose(); getPose.CombineRt();
 			globalRTMat.emplace_back(std::move(getPose.mCombineRt));
 			globalRVec.emplace_back(std::move(getPose.mrvec));
@@ -391,7 +397,7 @@ int main(int argc, char** argv)
 		tvecOfGT.emplace_back(readtvecOfGT.at(imageCurNum));
 		std::cout << std::endl;
 		std::cout << "mtvec: " << globalTVec.at(gP-1) << "  " << globalTVec.size() << std::endl;
-		std::cout << "tvecOfGT: " << tvecOfGT.at(imageCurNum) << std::endl;
+		std::cout << "tvecOfGT: " << tvecOfGT.at(imageCurNum) << "  gKF: " << gKF << std::endl;
 		std::cout << "-------------------------" << std::endl;
 		imageCurNum++;
 		realFrame++;

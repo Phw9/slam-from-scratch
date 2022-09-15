@@ -1,6 +1,7 @@
 #include <iostream>
 #include "Feature.h"
 #include "PoseEstimation.h"
+#include "Config.h"
 
 #include "opencv2/core.hpp"
 
@@ -84,11 +85,9 @@ void mvo::PoseEstimation::solvePnP(const std::vector<cv::Point3f>& objectPoints,
 void mvo::PoseEstimation::GetRMatTPose()
 {
     cv::Rodrigues(mrvec, mRotation);
-    std::cout << mRotation << std::endl;
     cv::Mat temp = -mRotation.inv();
-    std::cout << temp << std::endl;
     temp = temp*mTranslation;
-    std::cout << "after temp: " << std::endl << temp << std::endl;
+
     for (int j = 0; j < mTranslation.rows; j++)
     {
 		for (int i = 0; i < mTranslation.cols; i++)
