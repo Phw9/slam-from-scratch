@@ -26,7 +26,7 @@ namespace mvo
 }//namespace mvo
 
 void ManageTrackPoints(const mvo::Feature& present, mvo::Feature& before);
-void ManageTrackPoints(const mvo::Feature& present, mvo::Feature& before, mvo::Triangulate& mapPoints);
-void ManageTrackPoints(const mvo::Feature& present, mvo::Feature& before, std::vector<cv::Point3f>& mapPoints);
-void ManageInlier(std::vector<mvo::Feature>& features2d, std::vector<cv::Point3f>& mapPoints3d, const cv::Mat& inlier);
 bool ManageMapPoints(const std::vector<uchar>& mstatus, std::vector<cv::Point3f>& map);
+bool ManageMinusZ(mvo::Triangulate& map, std::vector<int>& id);
+bool ManageMinusLocal(std::vector<mvo::Feature>& localTrackPoints, const std::vector<int>& id);
+void ManageInlier(std::vector<mvo::Feature>& features2d, std::vector<cv::Point3f>& mapPoints3d, const cv::Mat& inlier);

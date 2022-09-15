@@ -9,7 +9,6 @@
 
 int main(int argc, char** argv)
 {
-	cv::Vec<double,1> temp;
     std::ofstream rawData ("./image.txt", rawData.out | rawData.trunc);
 	std::ifstream read ("./image.txt", read.in);
 	std::ifstream readGTtvec ("../image/GTpose.txt", readGTtvec.in);
@@ -34,22 +33,24 @@ int main(int argc, char** argv)
 	mvo::Feature detector;
 	mvo::Feature trackerA1, trackerA2, trackerB1, trackerB2;
 	std::vector<mvo::Feature> localTrackPointsA;
-	localTrackPointsA.reserve(6000);
+	localTrackPointsA.reserve(300);
 	int lTPA = 0;
 	std::vector<mvo::Feature> localTrackPointsB;
-	localTrackPointsB.reserve(6000);
+	localTrackPointsB.reserve(300);
 	int lTPB = 0;
 	std::vector<uchar> stats;
 
 	mvo::StrctureFromMotion getEssential;
-	
 	mvo::PoseEstimation getPose;
+
+	std::vector<int> mapStats;
 	mvo::Triangulate mapPointsA, mapPointsB;
 	std::vector<cv::Point3f> localMapPointsA, localMapPointsB;
 	std::vector<mvo::Triangulate> globalLandMark;
 	int gLM = 0;
 	std::vector<int> gKF;
 
+	cv::Vec<double,1> angularVelocity;
 	std::vector<cv::Mat> globalRTMat;
 	std::vector<cv::Vec3d> globalRVec;
 	std::vector<cv::Vec3d> globalTVec;
@@ -79,7 +80,7 @@ int main(int argc, char** argv)
 			{
 				if(!trackerA1.GoodFeaturesToTrack(img))
 				{	
-					std::cout << "new tracker A" << std::endl;
+					std::cerr << "new tracker A" << std::endl;
 				}
 				localTrackPointsA.emplace_back(std::move(trackerA1));
 			}
@@ -99,16 +100,23 @@ int main(int argc, char** argv)
 				if(!mapPointsA.CalcWorldPoints(intrinsicKd*m1, intrinsicKd*m2,
 							localTrackPointsA[0].mfeatures, localTrackPointsA[lTPA].mfeatures))
 				{
-					std::cout << "fail scaling" << std::endl;
+					std::cerr << "fail scaling" << std::endl;
 				}
 
 				if(!mapPointsA.ScalingPoints())
 				{
-					std::cout << "fail scaling" << std::endl;
+					std::cerr << "fail scaling" << std::endl;
 				}
-				mapPointsA.MatToPoints3f();
+				mapPointsA.MatToPoints3f();	mapStats.clear();
+				if(!ManageMinusZ(mapPointsA, mapStats))
+				{
+					std::cerr << "failed ManageMinusZ A" << std::endl;
+				}
+				if(!ManageMinusLocal(localTrackPointsA, mapStats))
+				{
+					std::cerr << "failed Minus local" << std::endl;
+				}
 				globalLandMark.emplace_back(mapPointsA);
-				localMapPointsA = mapPointsA.mworldMapPointsV;
 				gLM++;
 				// create Track B
 				if(!trackerB1.GoodFeaturesToTrack(img))
@@ -138,7 +146,7 @@ int main(int argc, char** argv)
 
 				for(int i = 0; i < lTPA-1; i++)
 				{
-					ManageTrackPoints(localTrackPointsA.at(lTPA), localTrackPointsA.at(i), localMapPointsA);
+					ManageTrackPoints(localTrackPointsA.at(lTPA), localTrackPointsA.at(i));
 					std::cout << "size" << i <<": " << localTrackPointsA.at(i).mfeatures.size() << " ";
 				}
 				cv::cvtColor(img, img, cv::ColorConversionCodes::COLOR_GRAY2BGR);
@@ -169,7 +177,10 @@ int main(int argc, char** argv)
 
 		// if num of Feature is less than NUMOFPOINTS, GFTT
 		// while(localTrackPointsA[lTPA].mfeatures.size() < NUMOFPOINTS || localTrackPointsB[lTPB].mfeatures.size() < NUMOFPOINTS)
-		while(localTrackPointsA[lTPA].mfeatures.size() < NUMOFPOINTS || localTrackPointsB[lTPB].mfeatures.size() < NUMOFPOINTS || temp[0] > ANGULARVELOCITY)
+		while(localTrackPointsA[lTPA].mfeatures.size() < NUMOFPOINTS || 
+				localTrackPointsB[lTPB].mfeatures.size() < NUMOFPOINTS || 
+				angularVelocity[0] > ANGULARVELOCITY ||
+				(getPose.minlier.rows < NUMOFINLIER && gP>10))
 		{
 			imageCurNum--;
 			img = cv::imread(readImageName.at(imageCurNum), 
@@ -181,14 +192,27 @@ int main(int argc, char** argv)
 				mapPointsB.mworldMapPointsV.clear();
 				mapPointsB.CalcWorldPoints(intrinsicKd*globalRTMat.at(gP-lTPB), intrinsicKd*globalRTMat.at(gP-1), 
 										localTrackPointsB.at(0).mfeatures, localTrackPointsB.at(lTPB).mfeatures);
-				mapPointsB.ScalingPoints(); mapPointsB.MatToPoints3f();
+				if(!mapPointsB.ScalingPoints())
+				{
+					std::cerr << "failed scaling" << std::endl;
+				}
+				mapPointsB.MatToPoints3f(); mapStats.clear();
 				std::cout << "mapPointsB.mworldMapPointsV.size: " <<mapPointsB.mworldMapPointsV.size() << std::endl;
+				if(!ManageMinusZ(mapPointsB, mapStats))
+				{
+					std::cerr << "failed ManageMinusZ B" << std::endl;
+				}
+				if(!ManageMinusLocal(localTrackPointsB, mapStats))
+				{
+					std::cerr << "failed Minus local B" << std::endl;
+				}
 				globalLandMark.emplace_back(mapPointsB);
 				gLM++;
+
 				localTrackPointsA.clear();
 				if(!trackerA1.GoodFeaturesToTrack(img))
 				{
-					std::cout << "new tracker A" << std::endl;
+					std::cerr << "new tracker A" << std::endl;
 				}
 				localTrackPointsA.emplace_back(std::move(trackerA1));
 				lTPA = 0;
@@ -209,9 +233,22 @@ int main(int argc, char** argv)
 				mapPointsA.mworldMapPointsV.clear();
 				mapPointsA.CalcWorldPoints(intrinsicKd*globalRTMat.at(gP-lTPA), intrinsicKd*globalRTMat.at(gP-1), 
 										localTrackPointsA.at(0).mfeatures, localTrackPointsA.at(lTPA).mfeatures);
-				mapPointsA.ScalingPoints(); mapPointsA.MatToPoints3f();
+				if(!mapPointsA.ScalingPoints())
+				{
+					std::cerr << "failed scaling" << std::endl;
+				}
+				mapPointsA.MatToPoints3f(); mapStats.clear();
+				if(!ManageMinusZ(mapPointsA, mapStats))
+				{
+					std::cerr << "failed ManageMinusZ A" << std::endl;
+				}
+				if(!ManageMinusLocal(localTrackPointsA, mapStats))
+				{
+					std::cerr << "failed Minus local" << std::endl;
+				}
 				globalLandMark.emplace_back(mapPointsA);
 				gLM++;
+
 				localTrackPointsB.clear();
 				if(!trackerB1.GoodFeaturesToTrack(img))
 				{	
@@ -273,11 +310,11 @@ int main(int argc, char** argv)
 			std::cout << std::endl;
 			
 
-			temp = globalRVec.at(gP-1).t() * globalRVec.at(gP-1);
+			angularVelocity = globalRVec.at(gP-1).t() * globalRVec.at(gP-1);
 
 			
 
-			std::cout << "mrvec: " << globalRVec.at(gP-1) << "  " << temp << std::endl;
+			std::cout << "mrvec: " << globalRVec.at(gP-1) << "  angularV: " << angularVelocity << std::endl;
 			std::cout << "mtvec: " << globalTVec.at(gP-1) << std::endl;
 			std::cout << "mapPoints.size A: " << mapPointsA.mworldMapPointsV.size() << std::endl;
 			std::cout << "present local points size A: " << localTrackPointsA[lTPA].mfeatures.size() << std::endl;
@@ -324,10 +361,10 @@ int main(int argc, char** argv)
 			globalTVec.emplace_back(std::move(getPose.mtvec));
 			gP++;
 
-			temp = globalRVec.at(gP-1).t() * globalRVec.at(gP-1);
+			angularVelocity = globalRVec.at(gP-1).t() * globalRVec.at(gP-1);
 
 			std::cout << std::endl;
-			std::cout << "mrvec: " << globalRVec.at(gP-1) << "  " << temp << std::endl;
+			std::cout << "mrvec: " << globalRVec.at(gP-1) << "  angularV: " << angularVelocity << std::endl;
 			std::cout << "mtvec: " << globalTVec.at(gP-1) << std::endl;
 			std::cout << "mapPoints.size B: " << mapPointsB.mworldMapPointsV.size() << std::endl;
 			std::cout << "present local points size B: " << localTrackPointsA[lTPB].mfeatures.size() << std::endl;

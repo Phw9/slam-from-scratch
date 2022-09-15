@@ -68,6 +68,20 @@ bool mvo::Feature::OpticalFlowPyrLK(const cv::Mat& src1, const cv::Mat& src2, mv
     }
     return true;
 }
+
+void ManageTrackPoints(const mvo::Feature& present, mvo::Feature& before)
+{
+    int indexCorrection = 0;
+    for(int i = 0; i < present.mstatus.size(); i++)
+    {
+        if(present.mstatus.at(i) == 0)
+        {
+            before.mfeatures.erase(before.mfeatures.begin() + (i-indexCorrection));
+            indexCorrection++;
+        }
+    }
+}
+
 bool ManageMapPoints(const std::vector<uchar>& mstatus, std::vector<cv::Point3f>& map)
 {
     int indexCorrection = 0;
@@ -82,71 +96,44 @@ bool ManageMapPoints(const std::vector<uchar>& mstatus, std::vector<cv::Point3f>
                 indexCorrection++;
             }
         }
+        for(int i = 0; i < map.size(); i++)
+        {
+            std::cout << map.at(i).x << " " << map.at(i).y << " " << map.at(i).z << std::endl;
+        }
         return true;
     }
     return false;
 }
+bool ManageMinusZ(mvo::Triangulate& map, std::vector<int>& id)
+{
+    for(int i = 0; i < map.mworldMapPointsV.size(); i++)
+    {
+        if(map.mworldMapPointsV.at(i).z<0)
+        {
+            id.emplace_back(i);
+            map.mworldMapPointsV.erase(map.mworldMapPointsV.begin()+i);
+        }
+    }
+    if(map.mworldMapPointsV.size() == 0) return false;
 
-void ManageTrackPoints(const mvo::Feature& present, mvo::Feature& before)
+    return true;
+}
+
+bool ManageMinusLocal(std::vector<mvo::Feature>& localTrackPoints, const std::vector<int>& id)
 {
-    int indexCorrection = 0;
-    for(int i = 0; i < present.mstatus.size(); i++)
+    for(int i = 0; i<localTrackPoints.size(); i++)
     {
-        if(present.mstatus.at(i) == 0)
+        for(int j = 0; j<id.size(); j++)
         {
-            before.mfeatures.erase(before.mfeatures.begin() + (i-indexCorrection));
-            indexCorrection++;
+            localTrackPoints.at(i).mfeatures.erase(localTrackPoints.at(i).mfeatures.begin()+id.at(j));
         }
     }
-}
-void ManageTrackPoints(const mvo::Feature& present, mvo::Feature& before, mvo::Triangulate& mapPoints)
-{
-    int indexCorrection = 0;
     
-    if(mapPoints.mworldMapPointsV.size() == before.mfeatures.size())
-    {
-        for(int i = 0; i < present.mstatus.size(); i++)
-        {
-            if(present.mstatus.at(i) == 0)
-            {
-                mapPoints.mworldMapPointsV.erase(mapPoints.mworldMapPointsV.begin() + (i - indexCorrection));
-                indexCorrection++;
-            }
-        }
-    }
-    for(int i = 0; i < present.mstatus.size(); i++)
-    {
-        if(present.mstatus.at(i) == 0)
-        {
-            before.mfeatures.erase(before.mfeatures.begin() + (i-indexCorrection));
-            indexCorrection++;
-        }
-    }
-}
-void ManageTrackPoints(const mvo::Feature& present, mvo::Feature& before, std::vector<cv::Point3f>& mapPoints)
-{
-    int indexCorrection = 0;
+    if(localTrackPoints.at(0).mfeatures.size() == localTrackPoints.at(localTrackPoints.size()-1).mfeatures.size()) return true;
     
-    if(mapPoints.size() == before.mfeatures.size())
-    {
-        for(int i = 0; i < present.mstatus.size(); i++)
-        {
-            if(present.mstatus.at(i) == 0)
-            {
-                mapPoints.erase(mapPoints.begin() + (i - indexCorrection));
-                indexCorrection++;
-            }
-        }
-    }
-    for(int i = 0; i < present.mstatus.size(); i++)
-    {
-        if(present.mstatus.at(i) == 0)
-        {
-            before.mfeatures.erase(before.mfeatures.begin() + (i-indexCorrection));
-            indexCorrection++;
-        }
-    }
+    return false;
 }
+
 void ManageInlier(std::vector<mvo::Feature>& features2d, std::vector<cv::Point3f>& mapPoints3d, const cv::Mat& inlier)
 {
     int interval;
