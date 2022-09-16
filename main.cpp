@@ -308,8 +308,7 @@ int main(int argc, char** argv)
 			// std::cout << "after inlier mappoints size: " << mapPointsA.mworldMapPointsV.size() << std::endl;	
 			getPose.GetRMatTPose(); getPose.CombineRt();
 			globalRTMat.emplace_back(std::move(getPose.mCombineRt));
-			globalRVec.emplace_back(std::move(getPose.mrvec));
-			globalTVec.emplace_back(std::move(getPose.mtvec));
+			globalRVec.emplace_back(std::move(getPose.mrvec)); globalTVec.emplace_back(std::move(getPose.mtvec));
 			gP++;
 			std::cout << std::endl;
 			
@@ -361,8 +360,7 @@ int main(int argc, char** argv)
 			// std::cout << "after inlier mappoints size: " << mapPointsB.mworldMapPointsV.size() << std::endl;		
 			getPose.GetRMatTPose(); getPose.CombineRt();
 			globalRTMat.emplace_back(std::move(getPose.mCombineRt));
-			globalRVec.emplace_back(std::move(getPose.mrvec));
-			globalTVec.emplace_back(std::move(getPose.mtvec));
+			globalRVec.emplace_back(std::move(getPose.mrvec)); globalTVec.emplace_back(std::move(getPose.mtvec));
 			gP++;
 
 			angularVelocity = globalRVec.at(gP-1).t() * globalRVec.at(gP-1);

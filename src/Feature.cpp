@@ -50,9 +50,9 @@ bool mvo::Feature::OpticalFlowPyrLK(const cv::Mat& src1, const cv::Mat& src2, mv
     for(int i = 0; i < next.mstatus.size(); i++)
     {
         cv::Point2f pt = next.mfeatures.at(i - indexCorrection);
-        if((next.mstatus.at(i) == 0) || (pt.x < 0) || (pt.y < 0))
+        if((next.mstatus.at(i) == 0) || (pt.x < 0 || pt.x > (float)1241.0) || (pt.y < 0 || pt.y > (float)376.0))
         {
-            if(((pt.x < 0) || (pt.y < 0)))
+            if(((pt.x < 0 || pt.x > (float)1241.0) || (pt.y < 0 || pt.y > (float)376.0)))
             {
                 next.mstatus.at(i) = 0;
             }
