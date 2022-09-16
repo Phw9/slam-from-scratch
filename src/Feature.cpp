@@ -1,6 +1,11 @@
 #include <iostream>
 #include "Feature.h"
 
+#define ERRORSIZE 29
+#define MAXCORNER 2000
+#define QUALITYLEVEL 0.01
+#define MINDISTANCE 5
+
 mvo::Feature::Feature()
 {
     mfeatures.clear();
@@ -24,7 +29,7 @@ mvo::Feature::Feature()
 
 bool mvo::Feature::GoodFeaturesToTrack(const cv::Mat& src)
 {
-    cv::goodFeaturesToTrack(src, mfeatures, 2000, 0.01, 10);
+    cv::goodFeaturesToTrack(src, mfeatures, MAXCORNER, QUALITYLEVEL, MINDISTANCE);
     if(mfeatures.empty())
     {
         std::cerr << "failed to goodFeaturesToTrack" << std::endl;
@@ -50,9 +55,15 @@ bool mvo::Feature::OpticalFlowPyrLK(const cv::Mat& src1, const cv::Mat& src2, mv
     for(int i = 0; i < next.mstatus.size(); i++)
     {
         cv::Point2f pt = next.mfeatures.at(i - indexCorrection);
-        if((next.mstatus.at(i) == 0) || (pt.x < 0 || pt.x > (float)1241.0) || (pt.y < 0 || pt.y > (float)376.0))
+
+        if((next.mstatus.at(i) == 0) || 
+            (pt.x < 0 || pt.x > (float)1241.0) || 
+            (pt.y < 0 || pt.y > (float)376.0) ||
+            next.merr.at(i) > ERRORSIZE)
         {
-            if(((pt.x < 0 || pt.x > (float)1241.0) || (pt.y < 0 || pt.y > (float)376.0)))
+            if((pt.x < 0 || pt.x > (float)1241.0) || 
+                (pt.y < 0 || pt.y > (float)376.0) ||
+                next.merr.at(i) > ERRORSIZE)
             {
                 next.mstatus.at(i) = 0;
             }
@@ -61,6 +72,7 @@ bool mvo::Feature::OpticalFlowPyrLK(const cv::Mat& src1, const cv::Mat& src2, mv
             indexCorrection++;
         }
     }
+    
     if(next.mfeatures.empty())
     {
         std::cerr << "failed calcOpticalFlowPyrLK" << std::endl;
@@ -81,7 +93,7 @@ void ManageTrackPoints(const mvo::Feature& present, mvo::Feature& before)
         }
     }
 }
-
+ 
 bool ManageMapPoints(const std::vector<uchar>& mstatus, std::vector<cv::Point3f>& map)
 {
     int indexCorrection = 0;

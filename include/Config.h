@@ -9,13 +9,14 @@
 #define WINDOWHEIGHT 768
 #define VIEWPOINTF 20.0
 #define VIEWPOINTX 0.0
-#define VIEWPOINTY -100.0
+#define VIEWPOINTY -50.0
 #define VIEWPOINTZ -0.1
 
 #define NUMOFPOINTS 200
 
-#define ANGULARVELOCITY 0.2
-#define NUMOFINLIER 90
+#define ANGULARVELOCITY 10000
+#define NUMOFINLIER 460
+#define INLIERRATIO 0.5
 
 float cameraXf = 6.018873000000e+02; double cameraXd = 6.018873000000e+02;
 float cameraYf = 1.831104000000e+02; double cameraYd = 1.831104000000e+02;
