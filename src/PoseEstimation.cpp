@@ -124,3 +124,16 @@ cv::Mat mvo::MultiplyMat(const cv::Mat& R1, const cv::Mat& R2)
         temp3.pop_back();
         return temp3;
 }
+
+double mvo::RotationAngle(const cv::Mat& R1, const cv::Mat& R2)
+{
+    cv::Mat temp = R1; cv::Vec<double,1> v;
+    cv::Vec3d tempd;
+    double theta;
+    temp = temp.inv();
+    temp = temp * R2;
+    cv::Rodrigues(temp, tempd);
+    v = tempd.t() * tempd;
+    theta = sqrt(v(0));
+    return theta;
+}

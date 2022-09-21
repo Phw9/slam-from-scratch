@@ -14,9 +14,10 @@
 
 #define NUMOFPOINTS 200
 
-#define ANGULARVELOCITY 10000
-#define NUMOFINLIER 460
-#define INLIERRATIO 0.5
+#define ANGULARVELOCITY 0.055
+#define NUMOFINLIER 150
+#define INLIERRATIO 0.48
+#define MINLOCAL 2
 
 float cameraXf = 6.018873000000e+02; double cameraXd = 6.018873000000e+02;
 float cameraYf = 1.831104000000e+02; double cameraYd = 1.831104000000e+02;

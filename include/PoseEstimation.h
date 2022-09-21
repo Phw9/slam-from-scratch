@@ -51,5 +51,6 @@ namespace mvo
     };
 
     cv::Mat MultiplyMat(const cv::Mat& R1, const cv::Mat& R2);
+    double RotationAngle(const cv::Mat& R1, const cv::Mat& R2);
 } //namespace mvo
 

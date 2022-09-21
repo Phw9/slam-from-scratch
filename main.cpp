@@ -51,11 +51,9 @@ int main(int argc, char** argv)
 	int gKF = 0;
 
 	float inlierRatio = 1000.0f;
-	cv::Vec<double,1> angularVelocity;
-	std::vector<cv::Mat> globalRTMat;
-	std::vector<cv::Mat> globalRMat;
-	std::vector<cv::Vec3d> globalRVec;
-	std::vector<cv::Vec3d> globalTVec;
+	double angularVelocity = 0;
+	std::vector<cv::Mat> globalRTMat; std::vector<cv::Mat> globalRMat;
+	std::vector<cv::Vec3d> globalRVec; std::vector<cv::Vec3d> globalTVec;
 	int gP = 0;
 	
 	Viewer::MyVisualize pangolinViewer=Viewer::MyVisualize(WINDOWWIDTH, WINDOWHEIGHT);
@@ -183,10 +181,10 @@ int main(int argc, char** argv)
 
 		// if num of Feature is less than NUMOFPOINTS, GFTT
 		// while(localTrackPointsA[lTPA].mfeatures.size() < NUMOFPOINTS || localTrackPointsB[lTPB].mfeatures.size() < NUMOFPOINTS)
-		while((localTrackPointsA.size()>3 && localTrackPointsB.size()>3) && 
+		while((localTrackPointsA.size()> MINLOCAL && localTrackPointsB.size()> MINLOCAL) && 
 				(localTrackPointsA[lTPA].mfeatures.size() < NUMOFPOINTS || 
 				localTrackPointsB[lTPB].mfeatures.size() < NUMOFPOINTS || 
-				angularVelocity[0] > ANGULARVELOCITY ||
+				angularVelocity > ANGULARVELOCITY ||
 				(getPose.minlier.rows < NUMOFINLIER && gP>ESSENTIALFRAME) ||
 				inlierRatio < INLIERRATIO))
 
@@ -321,11 +319,7 @@ int main(int argc, char** argv)
 			gP++;
 			std::cout << std::endl;
 			
-
-			angularVelocity = globalRVec.at(gP-1).t() * globalRVec.at(gP-1);
-			angularVelocity(0) = sqrt(angularVelocity(0)); 
-
-			
+			angularVelocity = mvo::RotationAngle(globalRMat.at(gP-2), globalRMat.at(gP-1));
 
 			std::cout << "mrvec: " << globalRVec.at(gP-1) << "  angularV: " << angularVelocity << std::endl;
 			std::cout << "mtvec: " << globalTVec.at(gP-1) << std::endl;
@@ -375,8 +369,9 @@ int main(int argc, char** argv)
 			globalRVec.emplace_back(std::move(getPose.mrvec)); globalTVec.emplace_back(std::move(getPose.mtvec));
 			gP++;
 
-			angularVelocity = globalRVec.at(gP-1).t() * globalRVec.at(gP-1);
-			angularVelocity(0) = sqrt(angularVelocity(0)); 
+			angularVelocity = mvo::RotationAngle(globalRMat.at(gP-2), globalRMat.at(gP-1));
+			
+
 			std::cout << std::endl;
 			std::cout << "mrvec: " << globalRVec.at(gP-1) << "  angularV: " << angularVelocity << std::endl;
 			std::cout << "mtvec: " << globalTVec.at(gP-1) << std::endl;

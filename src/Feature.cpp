@@ -1,10 +1,6 @@
 #include <iostream>
 #include "Feature.h"
 
-#define ERRORSIZE 29
-#define MAXCORNER 2000
-#define QUALITYLEVEL 0.01
-#define MINDISTANCE 5
 
 mvo::Feature::Feature()
 {

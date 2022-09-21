@@ -7,6 +7,12 @@
 #include "opencv2/stitching.hpp"
 #include "opencv2/video.hpp"
 
+#define ERRORSIZE 25
+#define MAXCORNER 1000
+#define QUALITYLEVEL 0.01
+#define MINDISTANCE 8
+
+
 namespace mvo
 {
     class Feature

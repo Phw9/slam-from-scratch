@@ -45,7 +45,6 @@ include_directories(
 
 add_library(mine SHARED
    ${PROJECT_SOURCE_DIR}/src/Feature.cpp
-   ${PROJECT_SOURCE_DIR}/src/KeyFrame.cpp
    ${PROJECT_SOURCE_DIR}/src/PoseEstimation.cpp
    ${PROJECT_SOURCE_DIR}/src/Triangulate.cpp
    ${PROJECT_SOURCE_DIR}/src/Init.cpp
