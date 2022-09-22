@@ -6,56 +6,23 @@
 #include "opencv2/imgcodecs.hpp"
 #include "opencv2/highgui.hpp"
 
-
 int main(int argc, char** argv)
 {
-    std::ofstream rawData ("./image.txt", rawData.out | rawData.trunc);
+	std::ofstream rawData ("./image.txt", rawData.out | rawData.trunc);
 	std::ifstream read ("./image.txt", read.in);
 	std::ifstream readGTtvec ("../image/GTpose.txt", readGTtvec.in);
-    
-	std::vector<cv::Vec3f> readtvecOfGT;
-	std::vector<cv::Vec3f> tvecOfGT;
-	if(!read.is_open())
+
+    if(!read.is_open())
 	{
 		std::cerr << "file can't read image" << std::endl;
 		return 0;
 	}
-	std::deque<std::string> readImageName;
-	cv::Mat img;
-	int imageCurNum = 0;
-	int realFrame = 0;
-
+	
 	MakeTextFile(rawData, IMAGENUM);
 	FileRead(readImageName, read);
 	GTPoseRead(readtvecOfGT, readGTtvec);
-	
+	localTrackPointsA.reserve(30); localTrackPointsB.reserve(30);
 
-	mvo::Feature detector;
-	mvo::Feature trackerA, trackerB;
-	std::vector<mvo::Feature> localTrackPointsA;
-	localTrackPointsA.reserve(300);
-	int lTPA = 0;
-	std::vector<mvo::Feature> localTrackPointsB;
-	localTrackPointsB.reserve(300);
-	int lTPB = 0;
-	std::vector<uchar> stats;
-
-	mvo::StrctureFromMotion getEssential;
-	mvo::PoseEstimation getPose;
-
-	std::vector<int> mapStats;
-	mvo::Triangulate mapPointsA, mapPointsB;
-	std::vector<cv::Point3f> localMapPointsA, localMapPointsB;
-	std::vector<mvo::Triangulate> globalLandMark;
-	int gLM = 0;
-	int gKF = 0;
-
-	float inlierRatio = 1000.0f;
-	double angularVelocity = 0;
-	std::vector<cv::Mat> globalRTMat; std::vector<cv::Mat> globalRMat;
-	std::vector<cv::Vec3d> globalRVec; std::vector<cv::Vec3d> globalTVec;
-	int gP = 0;
-	
 	Viewer::MyVisualize pangolinViewer=Viewer::MyVisualize(WINDOWWIDTH, WINDOWHEIGHT);
     pangolinViewer.initialize();
     pangolin::OpenGlRenderState s_cam(

@@ -9,6 +9,8 @@
 #include "opencv2/imgproc.hpp"
 #include "eigen3/Eigen/Dense"
 #include "Triangulate.h"
+#include "PoseEstimation.h"
+#include "Feature.h"
 
 #include <pangolin/display/display.h>
 #include <pangolin/gl/gl.h>
@@ -30,6 +32,38 @@ void FileRead(std::deque<std::string>& v, std::ifstream &fin);
 void MakeTextFile(std::ofstream& fout, const int& imageNum);
 void GTPoseRead(std::vector<cv::Vec3f>& v, std::ifstream& fin);
 
+std::vector<cv::Vec3f> readtvecOfGT;
+std::vector<cv::Vec3f> tvecOfGT;
+
+std::deque<std::string> readImageName;
+cv::Mat img;
+int imageCurNum = 0;
+int realFrame = 0;
+
+mvo::Feature detector;
+mvo::Feature trackerA, trackerB;
+std::vector<mvo::Feature> localTrackPointsA;
+int lTPA = 0;
+std::vector<mvo::Feature> localTrackPointsB;
+int lTPB = 0;
+
+std::vector<uchar> stats;
+
+mvo::StrctureFromMotion getEssential;
+mvo::PoseEstimation getPose;
+
+std::vector<int> mapStats;
+mvo::Triangulate mapPointsA, mapPointsB;
+std::vector<cv::Point3f> localMapPointsA, localMapPointsB;
+std::vector<mvo::Triangulate> globalLandMark;
+int gLM = 0;
+int gKF = 0;
+
+float inlierRatio = 1000.0f;
+double angularVelocity = 0;
+std::vector<cv::Mat> globalRTMat; std::vector<cv::Mat> globalRMat;
+std::vector<cv::Vec3d> globalRVec; std::vector<cv::Vec3d> globalTVec;
+int gP = 0;
 
 
 namespace Viewer
