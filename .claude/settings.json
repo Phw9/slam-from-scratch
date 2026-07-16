@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./build.sh:*)",
+      "Bash(./run.sh:*)",
+      "Bash(bash ./build.sh:*)",
+      "Bash(bash ./run.sh:*)",
+      "PowerShell(.\\build.ps1:*)",
+      "PowerShell(.\\run.ps1:*)"
+    ]
+  }
+}
