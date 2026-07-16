@@ -1,7 +1,5 @@
 #pragma once
 
-#include "constants.h"
-
 #include <opencv2/core.hpp>
 
 #include <cstdint>
@@ -29,7 +27,6 @@ struct Pose {
 
 struct MapPoint {
     cv::Point3f position;
-    cv::Mat descriptor;
     cv::Point2f anchor_observation;
     Pose anchor_pose;
     int32_t created_frame = 0;
@@ -56,12 +53,6 @@ struct TrackState {
     int32_t pnp_success = 0;
 };
 
-struct InitialMap {
-    std::vector<cv::Point2f> points0;
-    std::vector<cv::Point2f> points1;
-    std::vector<cv::Point3f> points3d;
-};
-
 struct ReprojectionStats {
     int32_t valid = 0;
     double rmse = 0.0;
@@ -73,7 +64,6 @@ struct ReprojectionStats {
 struct TwoViewSelection {
     std::vector<cv::Point2f> points0;
     std::vector<cv::Point2f> points1;
-    std::vector<int32_t> indices;
     int32_t fundamental_inliers = 0;
     int32_t homography_inliers = 0;
     double homography_ratio = 0.0;

@@ -35,12 +35,5 @@ void log_visualization(Visualizer* visualizer, int32_t frame_id,
                        const std::vector<cv::Point3f>& all_map_points,
                        const Pose& pose);
 void flush_visualizer(Visualizer* visualizer);
-cv::Point3f camera_center_from_pose(const Pose& pose);
-double median_parallax_deg(const std::vector<cv::Point3f>& map_points,
-                           const Pose& pose0,
-                           const Pose& pose1);
-double parallax_deg_for_point(const cv::Point3f& point,
-                              const Pose& pose0,
-                              const Pose& pose1);
 
 }  // namespace mvo

@@ -1,8 +1,11 @@
 #include "converter.h"
 
+#include "constants.h"
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <vector>
 
 namespace mvo {
 
@@ -102,6 +105,76 @@ double depth_in_pose(const cv::Point3f& point, const Pose& pose) {
                          pose.r[8] * static_cast<double>(point.z) +
                          pose.t[2];
     return depth;
+}
+
+namespace {
+
+bool parallax_deg_between_centers(const cv::Point3f& point,
+                                  const cv::Point3f& c0,
+                                  const cv::Point3f& c1,
+                                  double* angle_deg) {
+    bool ok = false;
+    const double v0x = static_cast<double>(point.x - c0.x);
+    const double v0y = static_cast<double>(point.y - c0.y);
+    const double v0z = static_cast<double>(point.z - c0.z);
+    const double v1x = static_cast<double>(point.x - c1.x);
+    const double v1y = static_cast<double>(point.y - c1.y);
+    const double v1z = static_cast<double>(point.z - c1.z);
+    const double n0 = std::sqrt(v0x * v0x + v0y * v0y + v0z * v0z);
+    const double n1 = std::sqrt(v1x * v1x + v1y * v1y + v1z * v1z);
+    if (n0 > 1.0e-9 && n1 > 1.0e-9) {
+        double cos_angle = (v0x * v1x + v0y * v1y + v0z * v1z) / (n0 * n1);
+        cos_angle = std::max(-1.0, std::min(1.0, cos_angle));
+        *angle_deg = std::acos(cos_angle) * 180.0 / kPi;
+        ok = true;
+    }
+    return ok;
+}
+
+}  // namespace
+
+cv::Point3f camera_center_from_pose(const Pose& pose) {
+    const float x = static_cast<float>(
+        -(pose.r[0] * pose.t[0] + pose.r[3] * pose.t[1] +
+          pose.r[6] * pose.t[2]));
+    const float y = static_cast<float>(
+        -(pose.r[1] * pose.t[0] + pose.r[4] * pose.t[1] +
+          pose.r[7] * pose.t[2]));
+    const float z = static_cast<float>(
+        -(pose.r[2] * pose.t[0] + pose.r[5] * pose.t[1] +
+          pose.r[8] * pose.t[2]));
+    return cv::Point3f(x, y, z);
+}
+
+double median_parallax_deg(const std::vector<cv::Point3f>& map_points,
+                           const Pose& pose0,
+                           const Pose& pose1) {
+    double median = 0.0;
+    std::vector<double> angles;
+    const cv::Point3f c0 = camera_center_from_pose(pose0);
+    const cv::Point3f c1 = camera_center_from_pose(pose1);
+    angles.reserve(map_points.size());
+    for (const cv::Point3f& point : map_points) {
+        double angle_deg = 0.0;
+        if (parallax_deg_between_centers(point, c0, c1, &angle_deg)) {
+            angles.push_back(angle_deg);
+        }
+    }
+    if (!angles.empty()) {
+        std::sort(angles.begin(), angles.end());
+        median = angles[angles.size() / 2];
+    }
+    return median;
+}
+
+double parallax_deg_for_point(const cv::Point3f& point,
+                              const Pose& pose0,
+                              const Pose& pose1) {
+    double angle_deg = 0.0;
+    const cv::Point3f c0 = camera_center_from_pose(pose0);
+    const cv::Point3f c1 = camera_center_from_pose(pose1);
+    parallax_deg_between_centers(point, c0, c1, &angle_deg);
+    return angle_deg;
 }
 
 double reprojection_residual(const cv::Point3f& point,

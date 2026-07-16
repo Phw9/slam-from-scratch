@@ -1,7 +1,5 @@
 {
   "feature": {
-    "_frontend_modes": "0=klt, 1=superpoint_superglue",
-    "frontend_mode": 0,
     "min_init_tracks": 24,
     "max_features": 800,
     "max_init_tracks": 120,
@@ -18,8 +16,6 @@
     "klt_min_eig_threshold": 0.0001,
     "max_forward_backward_error": 1.0,
     "forward_backward_motion_ratio": 0.05,
-    "max_adaptive_forward_backward_error": 2.0,
-    "superpoint_model": "",
-    "superglue_model": ""
+    "max_adaptive_forward_backward_error": 2.0
   }
 }

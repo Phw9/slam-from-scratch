@@ -17,8 +17,7 @@ MapPoint make_map_point(const cv::Point3f& position,
                         int32_t frame_id,
                         int32_t track_length,
                         double reprojection_error,
-                        const MappingParameters& parameters,
-                        const cv::Mat& descriptor = cv::Mat());
+                        const MappingParameters& parameters);
 MapPoint make_pending_map_point(const cv::Point2f& observation,
                                 const Pose& anchor_pose,
                                 int32_t frame_id,

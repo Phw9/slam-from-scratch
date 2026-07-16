@@ -1,114 +1,55 @@
 #include "visualization.h"
 
-#include <algorithm>
-#include <cmath>
+#include "converter.h"
+
+#include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <iostream>
+#include <unordered_set>
+#include <vector>
 
 namespace mvo {
+namespace {
 
 bool visualizer_requested(const AppConfig& config) {
-    bool requested = false;
-    if (config.rerun_spawn || !config.rerun_save_path.empty()) {
-        requested = true;
-    }
-    return requested;
-}
-
-bool initialize_visualizer(const AppConfig& config, Visualizer* visualizer) {
-    bool ok = true;
-    visualizer->enabled = false;
-    visualizer->parameters = config.parameters.visualization;
-    visualizer->trajectory.clear();
-    if (visualizer_requested(config)) {
-#if MVO_HAS_RERUN
-        visualizer->rec = std::make_unique<rerun::RecordingStream>("mvo");
-        if (!config.rerun_save_path.empty()) {
-            visualizer->rec->save(config.rerun_save_path).exit_on_failure();
-        } else {
-            visualizer->rec->spawn().exit_on_failure();
-        }
-        visualizer->enabled = true;
-        std::cout << "rerun=enabled mode="
-                  << (config.rerun_save_path.empty() ? "spawn" : "save")
-                  << " path=" << config.rerun_save_path << std::endl;
-#else
-        std::cout << "rerun=unavailable build_without_rerun_sdk"
-                  << std::endl;
-        ok = false;
-#endif
-    }
-    return ok;
-}
-
-cv::Point3f camera_center_from_pose(const Pose& pose) {
-    const float x = static_cast<float>(
-        -(pose.r[0] * pose.t[0] + pose.r[3] * pose.t[1] +
-          pose.r[6] * pose.t[2]));
-    const float y = static_cast<float>(
-        -(pose.r[1] * pose.t[0] + pose.r[4] * pose.t[1] +
-          pose.r[7] * pose.t[2]));
-    const float z = static_cast<float>(
-        -(pose.r[2] * pose.t[0] + pose.r[5] * pose.t[1] +
-          pose.r[8] * pose.t[2]));
-    cv::Point3f center(x, y, z);
-    return center;
-}
-
-double median_parallax_deg(const std::vector<cv::Point3f>& map_points,
-                           const Pose& pose0,
-                           const Pose& pose1) {
-    double median = 0.0;
-    std::vector<double> angles;
-    const cv::Point3f c0 = camera_center_from_pose(pose0);
-    const cv::Point3f c1 = camera_center_from_pose(pose1);
-    angles.reserve(map_points.size());
-    for (const cv::Point3f& point : map_points) {
-        const double v0x = static_cast<double>(point.x - c0.x);
-        const double v0y = static_cast<double>(point.y - c0.y);
-        const double v0z = static_cast<double>(point.z - c0.z);
-        const double v1x = static_cast<double>(point.x - c1.x);
-        const double v1y = static_cast<double>(point.y - c1.y);
-        const double v1z = static_cast<double>(point.z - c1.z);
-        const double n0 = std::sqrt(v0x * v0x + v0y * v0y + v0z * v0z);
-        const double n1 = std::sqrt(v1x * v1x + v1y * v1y + v1z * v1z);
-        if (n0 > 1.0e-9 && n1 > 1.0e-9) {
-            double cos_angle = (v0x * v1x + v0y * v1y + v0z * v1z) /
-                               (n0 * n1);
-            cos_angle = std::max(-1.0, std::min(1.0, cos_angle));
-            angles.push_back(std::acos(cos_angle) * 180.0 / kPi);
-        }
-    }
-    if (!angles.empty()) {
-        std::sort(angles.begin(), angles.end());
-        median = angles[angles.size() / 2];
-    }
-    return median;
-}
-
-double parallax_deg_for_point(const cv::Point3f& point,
-                              const Pose& pose0,
-                              const Pose& pose1) {
-    double angle = 0.0;
-    const cv::Point3f c0 = camera_center_from_pose(pose0);
-    const cv::Point3f c1 = camera_center_from_pose(pose1);
-    const double v0x = static_cast<double>(point.x - c0.x);
-    const double v0y = static_cast<double>(point.y - c0.y);
-    const double v0z = static_cast<double>(point.z - c0.z);
-    const double v1x = static_cast<double>(point.x - c1.x);
-    const double v1y = static_cast<double>(point.y - c1.y);
-    const double v1z = static_cast<double>(point.z - c1.z);
-    const double n0 = std::sqrt(v0x * v0x + v0y * v0y + v0z * v0z);
-    const double n1 = std::sqrt(v1x * v1x + v1y * v1y + v1z * v1z);
-    if (n0 > 1.0e-9 && n1 > 1.0e-9) {
-        double cos_angle = (v0x * v1x + v0y * v1y + v0z * v1z) / (n0 * n1);
-        cos_angle = std::max(-1.0, std::min(1.0, cos_angle));
-        angle = std::acos(cos_angle) * 180.0 / kPi;
-    }
-    return angle;
+    return config.rerun_spawn || !config.rerun_save_path.empty();
 }
 
 #if MVO_HAS_RERUN
+struct Point3fHash {
+    std::size_t operator()(const cv::Point3f& point) const {
+        const std::hash<float> hasher;
+        std::size_t seed = hasher(point.x + 0.0F);
+        seed ^= hasher(point.y + 0.0F) + 0x9e3779b9U + (seed << 6) +
+                (seed >> 2);
+        seed ^= hasher(point.z + 0.0F) + 0x9e3779b9U + (seed << 6) +
+                (seed >> 2);
+        return seed;
+    }
+};
+
+struct Point3fEqual {
+    bool operator()(const cv::Point3f& a, const cv::Point3f& b) const {
+        return a.x == b.x && a.y == b.y && a.z == b.z;
+    }
+};
+
+void collect_previous_map_points(
+    const std::vector<cv::Point3f>& all_map_points,
+    const std::vector<cv::Point3f>& current_map_points,
+    std::vector<cv::Point3f>* previous_map_points) {
+    previous_map_points->clear();
+    previous_map_points->reserve(all_map_points.size());
+    const std::unordered_set<cv::Point3f, Point3fHash, Point3fEqual>
+        current_set(current_map_points.begin(), current_map_points.end());
+    for (const cv::Point3f& point : all_map_points) {
+        if (current_set.find(point) == current_set.end()) {
+            previous_map_points->push_back(point);
+        }
+    }
+}
+
 std::vector<uint8_t> image_bytes(const cv::Mat& image) {
     cv::Mat continuous = image;
     if (!image.isContinuous()) {
@@ -141,37 +82,32 @@ std::vector<rerun::Position3D> points3d_for_rerun(
 }
 #endif
 
-bool point3f_near(const cv::Point3f& a, const cv::Point3f& b) {
-    const double dx = static_cast<double>(a.x - b.x);
-    const double dy = static_cast<double>(a.y - b.y);
-    const double dz = static_cast<double>(a.z - b.z);
-    const bool near = dx * dx + dy * dy + dz * dz <= 1.0e-10;
-    return near;
-}
+}  // namespace
 
-bool contains_point3f(const std::vector<cv::Point3f>& points,
-                      const cv::Point3f& query) {
-    bool contains = false;
-    for (const cv::Point3f& point : points) {
-        if (point3f_near(point, query)) {
-            contains = true;
-            break;
+bool initialize_visualizer(const AppConfig& config, Visualizer* visualizer) {
+    bool ok = true;
+    visualizer->enabled = false;
+    visualizer->parameters = config.parameters.visualization;
+    visualizer->trajectory.clear();
+    if (visualizer_requested(config)) {
+#if MVO_HAS_RERUN
+        visualizer->rec = std::make_unique<rerun::RecordingStream>("mvo");
+        if (!config.rerun_save_path.empty()) {
+            visualizer->rec->save(config.rerun_save_path).exit_on_failure();
+        } else {
+            visualizer->rec->spawn().exit_on_failure();
         }
+        visualizer->enabled = true;
+        std::cout << "rerun=enabled mode="
+                  << (config.rerun_save_path.empty() ? "spawn" : "save")
+                  << " path=" << config.rerun_save_path << std::endl;
+#else
+        std::cout << "rerun=unavailable build_without_rerun_sdk"
+                  << std::endl;
+        ok = false;
+#endif
     }
-    return contains;
-}
-
-void collect_previous_map_points(
-    const std::vector<cv::Point3f>& all_map_points,
-    const std::vector<cv::Point3f>& current_map_points,
-    std::vector<cv::Point3f>* previous_map_points) {
-    previous_map_points->clear();
-    previous_map_points->reserve(all_map_points.size());
-    for (const cv::Point3f& point : all_map_points) {
-        if (!contains_point3f(current_map_points, point)) {
-            previous_map_points->push_back(point);
-        }
-    }
+    return ok;
 }
 
 void log_visualization(Visualizer* visualizer, int32_t frame_id,

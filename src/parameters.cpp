@@ -37,15 +37,6 @@ void read_float_parameter(const cv::FileNode& node,
     }
 }
 
-void read_string_parameter(const cv::FileNode& node,
-                           const std::string& key,
-                           std::string* value) {
-    const cv::FileNode child = node[key];
-    if (!child.empty()) {
-        *value = static_cast<std::string>(child);
-    }
-}
-
 cv::FileNode module_node(cv::FileStorage* fs, const std::string& module_name) {
     cv::FileNode node = fs->root();
     const cv::FileNode child = node[module_name];
@@ -62,8 +53,6 @@ bool load_feature_parameters(const std::filesystem::path& path,
                                           cv::FileStorage::FORMAT_JSON);
     if (fs.isOpened()) {
         const cv::FileNode node = module_node(&fs, "feature");
-        read_int_parameter(node, "frontend_mode",
-                           &parameters->frontend_mode);
         read_int_parameter(node, "min_init_tracks",
                            &parameters->min_init_tracks);
         read_int_parameter(node, "max_features", &parameters->max_features);
@@ -98,10 +87,6 @@ bool load_feature_parameters(const std::filesystem::path& path,
         read_double_parameter(
             node, "max_adaptive_forward_backward_error",
             &parameters->max_adaptive_forward_backward_error);
-        read_string_parameter(node, "superpoint_model",
-                              &parameters->superpoint_model);
-        read_string_parameter(node, "superglue_model",
-                              &parameters->superglue_model);
         ok = true;
     }
     return ok;
@@ -249,10 +234,6 @@ bool load_visualization_parameters(const std::filesystem::path& path,
 }
 
 void sanitize_parameters(MvoParameters* parameters) {
-    if (parameters->feature.frontend_mode < 0 ||
-        parameters->feature.frontend_mode > 1) {
-        parameters->feature.frontend_mode = 0;
-    }
     parameters->feature.min_init_tracks =
         std::max(2, parameters->feature.min_init_tracks);
     parameters->feature.max_features =

@@ -160,7 +160,7 @@ if [[ "$rerun_enabled" -eq 1 && "$rerun_mode" == "spawn" ]] && ! command -v reru
     echo "warning: rerun viewer was not found in PATH; spawn may fail. Use --rerun-save build/mvo.rrd to record without a viewer." >&2
 fi
 
-run_args=(--no-gui)
+run_args=()
 if [[ -n "$max_frames" ]]; then
     run_args+=(--max-frames "$max_frames")
 fi

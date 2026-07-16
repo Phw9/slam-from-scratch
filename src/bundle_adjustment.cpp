@@ -1,7 +1,6 @@
 #include "bundle_adjustment.h"
 
 #include "converter.h"
-#include "visualization.h"
 
 #include <calib3d/bundle_adjustment.h>
 #include <optimize/loss.h>

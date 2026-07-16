@@ -6,7 +6,6 @@
 namespace mvo {
 
 struct FeatureParameters {
-    int32_t frontend_mode = 0;
     int32_t min_init_tracks = 24;
     int32_t max_features = 800;
     int32_t max_init_tracks = 120;
@@ -24,8 +23,6 @@ struct FeatureParameters {
     double max_forward_backward_error = 1.0;
     double forward_backward_motion_ratio = 0.05;
     double max_adaptive_forward_backward_error = 2.0;
-    std::string superpoint_model = "";
-    std::string superglue_model = "";
 };
 
 struct PnpParameters {

@@ -4,9 +4,11 @@
 #include <opencv2/imgproc.hpp>
 
 #include <algorithm>
+#include <cstddef>
 #include <filesystem>
 
 namespace mvo {
+namespace {
 
 std::vector<std::string> list_images(const std::string& image_dir) {
     std::vector<std::string> images;
@@ -22,6 +24,21 @@ std::vector<std::string> list_images(const std::string& image_dir) {
     }
     return images;
 }
+
+bool convert_to_grayscale(const cv::Mat& image, cv::Mat* gray) {
+    bool ok = false;
+    if (!image.empty()) {
+        if (image.channels() == 1) {
+            *gray = image;
+        } else {
+            cv::cvtColor(image, *gray, cv::COLOR_BGR2GRAY);
+        }
+        ok = !gray->empty();
+    }
+    return ok;
+}
+
+}  // namespace
 
 bool open_frame_source(const AppConfig& config, FrameSource* source) {
     bool ok = false;
@@ -52,40 +69,23 @@ bool open_frame_source(const AppConfig& config, FrameSource* source) {
     return ok;
 }
 
-bool convert_to_grayscale(const cv::Mat& image, cv::Mat* gray) {
-    bool ok = false;
-    if (!image.empty()) {
-        if (image.channels() == 1) {
-            *gray = image.clone();
-        } else {
-            cv::cvtColor(image, *gray, cv::COLOR_BGR2GRAY);
-        }
-        ok = !gray->empty();
-    }
-    return ok;
-}
-
 bool read_next_frame(FrameSource* source, cv::Mat* gray) {
     bool ok = false;
-    cv::Mat image;
-    if (source->opened && source->input_type == InputType::kImageSequence) {
-        if (source->next_index < static_cast<int32_t>(source->images.size())) {
-            image = cv::imread(source->images[source->next_index],
-                               cv::IMREAD_GRAYSCALE);
+    if (source->opened) {
+        cv::Mat image;
+        if (source->input_type == InputType::kImageSequence) {
+            if (source->next_index <
+                static_cast<int32_t>(source->images.size())) {
+                image = cv::imread(
+                    source->images[static_cast<std::size_t>(
+                        source->next_index)],
+                    cv::IMREAD_GRAYSCALE);
+                ++source->next_index;
+            }
+        } else if (source->video.read(image)) {
             ++source->next_index;
         }
-    } else if (source->opened && source->input_type == InputType::kVideo) {
-        ok = source->video.read(image);
-    }
-
-    if (source->input_type == InputType::kImageSequence) {
-        ok = !image.empty();
-    }
-    if (ok) {
         ok = convert_to_grayscale(image, gray);
-        if (source->input_type == InputType::kVideo) {
-            ++source->next_index;
-        }
     }
     return ok;
 }

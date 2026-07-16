@@ -4,7 +4,6 @@
 #include "types.h"
 
 #include <opencv2/core.hpp>
-#include <opencv2/imgproc.hpp>
 
 #include <cstdint>
 #include <string>
@@ -31,7 +30,6 @@ bool track_points(const cv::Mat& prev_image, const cv::Mat& image,
                   std::vector<int32_t>* tracked_indices,
                   bool debug_geometry,
                   const std::string& tag,
-                  bool wide_search,
-                  std::vector<cv::Mat>* tracked_descriptors = nullptr);
+                  bool wide_search);
 
 }  // namespace mvo

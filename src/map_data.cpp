@@ -4,7 +4,6 @@
 #include "converter.h"
 #include "feature.h"
 #include "init.h"
-#include "visualization.h"
 
 #include <calib3d/multiview.h>
 
@@ -13,6 +12,7 @@
 #include <string>
 
 namespace mvo {
+namespace {
 
 cv::Point3f camera_point_to_world(const cv::Point3f& point,
                                   const Pose& pose) {
@@ -29,6 +29,8 @@ cv::Point3f camera_point_to_world(const cv::Point3f& point,
     return world_point;
 }
 
+}  // namespace
+
 void camera_points_to_world(const std::vector<cv::Point3f>& camera_points,
                             const Pose& pose,
                             std::vector<cv::Point3f>* world_points) {
@@ -43,13 +45,9 @@ MapPoint make_map_point(const cv::Point3f& position,
                         int32_t frame_id,
                         int32_t track_length,
                         double reprojection_error,
-                        const MappingParameters& parameters,
-                        const cv::Mat& descriptor) {
+                        const MappingParameters& parameters) {
     MapPoint point;
     point.position = position;
-    if (!descriptor.empty()) {
-        point.descriptor = descriptor.clone();
-    }
     point.created_frame = frame_id;
     point.last_seen_frame = frame_id;
     point.anchor_frame = frame_id;
@@ -254,7 +252,6 @@ bool recover_two_view_from_reference(const cv::Mat& reference_image,
     std::vector<cv::Point2f> initial_points;
     std::vector<cv::Point2f> tracked_reference;
     std::vector<cv::Point2f> tracked_current;
-    std::vector<cv::Mat> tracked_descriptors;
     TrackState recovered;
     set_identity_pose(&recovered.prev_pose);
     set_identity_pose(&recovered.last_pose);
@@ -264,13 +261,12 @@ bool recover_two_view_from_reference(const cv::Mat& reference_image,
                           parameters.feature,
                           &tracked_reference, &tracked_current, nullptr,
                           debug_geometry,
-                          "reinit_" + std::to_string(frame_id), false,
-                          &tracked_descriptors);
+                          "reinit_" + std::to_string(frame_id), false);
     }
     if (ok) {
         ok = initialize_two_view(tracked_reference, tracked_current,
-                                 &tracked_descriptors, camera, parameters,
-                                 run_ba, debug_geometry, &recovered);
+                                 camera, parameters, run_ba, debug_geometry,
+                                 &recovered);
     }
     if (ok) {
         std::vector<cv::Point3f> world_points;
@@ -285,16 +281,9 @@ bool recover_two_view_from_reference(const cv::Mat& reference_image,
         state->prev_points = recovered.prev_points;
         state->map_points.clear();
         state->map_points.reserve(world_points.size());
-        for (int32_t i = 0; i < static_cast<int32_t>(world_points.size());
-             ++i) {
-            const cv::Mat descriptor =
-                i < static_cast<int32_t>(recovered.map_points.size())
-                    ? recovered.map_points[static_cast<std::size_t>(i)]
-                          .descriptor
-                    : cv::Mat();
+        for (const cv::Point3f& world_point : world_points) {
             state->map_points.push_back(make_map_point(
-                world_points[static_cast<std::size_t>(i)], frame_id, 2, 0.0,
-                parameters.mapping, descriptor));
+                world_point, frame_id, 2, 0.0, parameters.mapping));
         }
         state->all_map_points.insert(state->all_map_points.end(),
                                      world_points.begin(),

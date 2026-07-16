@@ -1,7 +1,6 @@
 #include "pose_estimation.h"
 
 #include "converter.h"
-#include "visualization.h"
 
 #include <calib3d/pnp.h>
 #include <optimize/lm.h>
@@ -14,6 +13,7 @@
 #include <string>
 
 namespace mvo {
+namespace {
 
 bool solve_pnp_once(const std::vector<cv::Point3f>& map_points,
                     const std::vector<cv::Point2f>& image_points,
@@ -177,6 +177,8 @@ bool run_pnp_ransac(const std::vector<cv::Point3f>& map_points,
     return ok;
 }
 
+}  // namespace
+
 bool run_pnp(std::vector<cv::Point3f>* map_points,
              std::vector<cv::Point2f>* image_points,
              const CameraIntrinsics& camera,
@@ -191,25 +193,24 @@ bool run_pnp(std::vector<cv::Point3f>* map_points,
     std::string reject_reason;
     int32_t inlier_count = 0;
     const bool use_ransac = parameters.ransac_iterations > 0;
-    if (static_cast<int32_t>(map_points->size()) >= parameters.min_tracks &&
-        use_ransac) {
-        std::vector<cv::Point3f> ransac_map_points;
-        std::vector<cv::Point2f> ransac_image_points;
-        ok = run_pnp_ransac(
-            *map_points, *image_points, camera, initial_pose, parameters,
-            debug_geometry, &candidate, &ransac_map_points,
-            &ransac_image_points, &report, &ec, &inlier_count);
-        if (ok) {
-            *map_points = ransac_map_points;
-            *image_points = ransac_image_points;
+    if (static_cast<int32_t>(map_points->size()) >= parameters.min_tracks) {
+        if (use_ransac) {
+            std::vector<cv::Point3f> ransac_map_points;
+            std::vector<cv::Point2f> ransac_image_points;
+            ok = run_pnp_ransac(
+                *map_points, *image_points, camera, initial_pose, parameters,
+                debug_geometry, &candidate, &ransac_map_points,
+                &ransac_image_points, &report, &ec, &inlier_count);
+            if (ok) {
+                *map_points = ransac_map_points;
+                *image_points = ransac_image_points;
+            } else {
+                reject_reason = "ransac_failed";
+            }
         } else {
-            reject_reason = "ransac_failed";
+            ok = solve_pnp_once(*map_points, *image_points, camera,
+                                initial_pose, &candidate, &report, &ec);
         }
-    }
-    if (!ok && !use_ransac &&
-        static_cast<int32_t>(map_points->size()) >= parameters.min_tracks) {
-        ok = solve_pnp_once(*map_points, *image_points, camera, initial_pose,
-                            &candidate, &report, &ec);
     }
     if (ok) {
         std::vector<cv::Point3f> inlier_map_points;

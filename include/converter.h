@@ -22,6 +22,13 @@ void copy_cvlib_pose(const cvlib::Matrix* r, const cvlib::Vector* t,
 cvlib::Matrix pose_rotation_to_matrix(const Pose& pose);
 cvlib::Vector pose_translation_to_vector(const Pose& pose);
 double depth_in_pose(const cv::Point3f& point, const Pose& pose);
+cv::Point3f camera_center_from_pose(const Pose& pose);
+double median_parallax_deg(const std::vector<cv::Point3f>& map_points,
+                           const Pose& pose0,
+                           const Pose& pose1);
+double parallax_deg_for_point(const cv::Point3f& point,
+                              const Pose& pose0,
+                              const Pose& pose1);
 double reprojection_residual(const cv::Point3f& point,
                              const cv::Point2f& observation,
                              const Pose& pose,

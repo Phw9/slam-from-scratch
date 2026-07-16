@@ -8,26 +8,7 @@
 #include <sstream>
 
 namespace mvo {
-
-void set_identity_pose(Pose* pose) {
-    for (int32_t i = 0; i < 9; ++i) {
-        pose->r[i] = 0.0;
-    }
-    pose->r[0] = 1.0;
-    pose->r[4] = 1.0;
-    pose->r[8] = 1.0;
-    pose->t[0] = 0.0;
-    pose->t[1] = 0.0;
-    pose->t[2] = 0.0;
-}
-
-std::string input_type_name(InputType input_type) {
-    std::string name = "image_sequence";
-    if (input_type == InputType::kVideo) {
-        name = "video";
-    }
-    return name;
-}
+namespace {
 
 bool parse_input_type(const std::string& name, InputType* input_type) {
     bool ok = false;
@@ -88,7 +69,6 @@ bool load_json_config(const std::string& path, AppConfig* config) {
         read_string_node(root, "vocabulary", &config->vocabulary);
         read_int_node(root, "max_frames", &config->max_frames);
         read_bool_node(root, "run_ba", &config->run_ba);
-        read_bool_node(root, "no_gui", &config->no_gui);
         read_bool_node(root, "debug_geometry", &config->debug_geometry);
 
         const cv::FileNode rerun = root["rerun"];
@@ -108,16 +88,38 @@ bool load_json_config(const std::string& path, AppConfig* config) {
     return ok;
 }
 
+}  // namespace
+
+void set_identity_pose(Pose* pose) {
+    for (int32_t i = 0; i < 9; ++i) {
+        pose->r[i] = 0.0;
+    }
+    pose->r[0] = 1.0;
+    pose->r[4] = 1.0;
+    pose->r[8] = 1.0;
+    pose->t[0] = 0.0;
+    pose->t[1] = 0.0;
+    pose->t[2] = 0.0;
+}
+
+std::string input_type_name(InputType input_type) {
+    std::string name = "image_sequence";
+    if (input_type == InputType::kVideo) {
+        name = "video";
+    }
+    return name;
+}
+
 AppConfig parse_args(int argc, char** argv) {
     AppConfig config;
     for (int32_t i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
         if (arg == "--input-config" && i + 1 < argc) {
             ++i;
-            config.input_config_path = argv[i];
-            if (!load_json_config(config.input_config_path, &config)) {
+            const std::string input_config_path = argv[i];
+            if (!load_json_config(input_config_path, &config)) {
                 std::cout << "input_config=failed path="
-                          << config.input_config_path << std::endl;
+                          << input_config_path << std::endl;
             }
         }
     }
@@ -154,8 +156,6 @@ AppConfig parse_args(int argc, char** argv) {
         } else if (arg == "--max-frames" && i + 1 < argc) {
             ++i;
             config.max_frames = std::max(2, std::stoi(argv[i]));
-        } else if (arg == "--no-gui") {
-            config.no_gui = true;
         } else if (arg == "--no-ba") {
             config.run_ba = false;
         } else if (arg == "--debug-geometry") {

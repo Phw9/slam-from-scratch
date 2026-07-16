@@ -11,13 +11,11 @@ namespace mvo {
 struct AppConfig {
     InputType input_type = InputType::kImageSequence;
     std::string input_path = "image/image_0";
-    std::string input_config_path;
     std::string parameter_dir = "configs/parameters";
     std::string calib_path = "image/calib.txt";
     std::string vocabulary = "image/KITTI_00_phphww_voc.yml.gz";
     CameraIntrinsics camera;
     int32_t max_frames = 20;
-    bool no_gui = true;
     bool run_ba = true;
     bool debug_geometry = false;
     bool rerun_spawn = true;

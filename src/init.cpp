@@ -4,13 +4,15 @@
 #include "config.h"
 #include "converter.h"
 #include "map_data.h"
-#include "visualization.h"
 
 #include <calib3d/multiview.h>
 
+#include <cstddef>
 #include <iostream>
+#include <vector>
 
 namespace mvo {
+namespace {
 
 bool select_two_view_matches(const std::vector<cv::Point2f>& points0,
                              const std::vector<cv::Point2f>& points1,
@@ -20,7 +22,6 @@ bool select_two_view_matches(const std::vector<cv::Point2f>& points0,
     bool ok = false;
     selection->points0.clear();
     selection->points1.clear();
-    selection->indices.clear();
     selection->fundamental_inliers = 0;
     selection->homography_inliers = 0;
     selection->homography_ratio = 0.0;
@@ -58,32 +59,17 @@ bool select_two_view_matches(const std::vector<cv::Point2f>& points0,
     }
 
     if (f_ec == cvlib::ErrorCode::kSuccess &&
-        selection->fundamental_inliers >= parameters.min_tracks &&
-        selection->homography_ratio <= parameters.homography_model_ratio) {
-        for (int32_t i = 0; i < static_cast<int32_t>(f_mask.size()); ++i) {
-            if (f_mask[static_cast<std::size_t>(i)] != 0) {
-                selection->points0.push_back(
-                    points0[static_cast<std::size_t>(i)]);
-                selection->points1.push_back(
-                    points1[static_cast<std::size_t>(i)]);
-                selection->indices.push_back(i);
+        selection->fundamental_inliers >= parameters.min_tracks) {
+        for (std::size_t i = 0; i < f_mask.size(); ++i) {
+            if (f_mask[i] != 0) {
+                selection->points0.push_back(points0[i]);
+                selection->points1.push_back(points1[i]);
             }
         }
-        selection->selected_model = "fundamental";
-        ok = static_cast<int32_t>(selection->points0.size()) >=
-             parameters.min_tracks;
-    } else if (f_ec == cvlib::ErrorCode::kSuccess &&
-               selection->fundamental_inliers >= parameters.min_tracks) {
-        for (int32_t i = 0; i < static_cast<int32_t>(f_mask.size()); ++i) {
-            if (f_mask[static_cast<std::size_t>(i)] != 0) {
-                selection->points0.push_back(
-                    points0[static_cast<std::size_t>(i)]);
-                selection->points1.push_back(
-                    points1[static_cast<std::size_t>(i)]);
-                selection->indices.push_back(i);
-            }
-        }
-        selection->selected_model = "fundamental_quality_checked";
+        selection->selected_model =
+            selection->homography_ratio <= parameters.homography_model_ratio
+                ? "fundamental"
+                : "fundamental_quality_checked";
         ok = static_cast<int32_t>(selection->points0.size()) >=
              parameters.min_tracks;
     }
@@ -106,9 +92,10 @@ bool select_two_view_matches(const std::vector<cv::Point2f>& points0,
     return ok;
 }
 
+}  // namespace
+
 bool initialize_two_view(const std::vector<cv::Point2f>& points0,
                          const std::vector<cv::Point2f>& points1,
-                         const std::vector<cv::Mat>* point1_descriptors,
                          const CameraIntrinsics& camera,
                          const MvoParameters& parameters,
                          bool run_ba,
@@ -131,8 +118,8 @@ bool initialize_two_view(const std::vector<cv::Point2f>& points0,
     cvlib::Vector t = cvlib::vector_create(3);
     Pose pose0;
     Pose pose1;
-    InitialMap initial_map;
-    std::vector<cv::Mat> initial_descriptors;
+    std::vector<cv::Point2f> inlier_points0;
+    std::vector<cv::Point2f> inlier_points1;
     set_identity_pose(&pose0);
     set_identity_pose(&pose1);
 
@@ -164,31 +151,18 @@ bool initialize_two_view(const std::vector<cv::Point2f>& points0,
                     static_cast<float>(z));
                 const double z2 = depth_in_pose(point3d, pose1);
                 if (z > 1.0e-6 && z2 > 1.0e-6) {
-                    initial_map.points0.push_back(selection.points0[i]);
-                    initial_map.points1.push_back(selection.points1[i]);
-                    initial_map.points3d.push_back(point3d);
-                    if (point1_descriptors != nullptr &&
-                        i < static_cast<int32_t>(selection.indices.size()) &&
-                        selection.indices[static_cast<std::size_t>(i)] <
-                            static_cast<int32_t>(
-                                point1_descriptors->size())) {
-                        initial_descriptors.push_back(
-                            (*point1_descriptors)[static_cast<std::size_t>(
-                                selection.indices[static_cast<std::size_t>(i)])]);
-                    } else {
-                        initial_descriptors.push_back(cv::Mat());
-                    }
+                    inlier_points0.push_back(selection.points0[i]);
+                    inlier_points1.push_back(selection.points1[i]);
                     state->prev_points.push_back(selection.points1[i]);
                     state->map_points.push_back(make_map_point(
-                        point3d, 1, 2, 0.0, parameters.mapping,
-                        initial_descriptors.back()));
+                        point3d, 1, 2, 0.0, parameters.mapping));
                 }
             }
             const ReprojectionStats stats0 = compute_reprojection_stats(
-                map_point_positions(state->map_points), initial_map.points0,
+                map_point_positions(state->map_points), inlier_points0,
                 pose0, camera);
             const ReprojectionStats stats1 = compute_reprojection_stats(
-                map_point_positions(state->map_points), initial_map.points1,
+                map_point_positions(state->map_points), inlier_points1,
                 pose1, camera);
             const double parallax_deg = median_parallax_deg(
                 map_point_positions(state->map_points), pose0, pose1);
@@ -222,16 +196,13 @@ bool initialize_two_view(const std::vector<cv::Point2f>& points0,
                 map_point_positions(state->map_points);
             Pose ba_pose = pose1;
             const bool ba_ok = run_two_view_bundle_adjustment(
-                pose0, &ba_pose, camera, initial_map.points0,
-                initial_map.points1, &ba_map_points,
+                pose0, &ba_pose, camera, inlier_points0,
+                inlier_points1, &ba_map_points,
                 parameters.bundle_adjustment, "initial", debug_geometry);
             if (ba_ok) {
                 pose1 = ba_pose;
-                for (int32_t i = 0;
-                     i < static_cast<int32_t>(ba_map_points.size());
-                     ++i) {
-                    state->map_points[static_cast<std::size_t>(i)].position =
-                        ba_map_points[static_cast<std::size_t>(i)];
+                for (std::size_t i = 0; i < ba_map_points.size(); ++i) {
+                    state->map_points[i].position = ba_map_points[i];
                 }
             }
         } else if (debug_geometry && ec == cvlib::ErrorCode::kSuccess &&

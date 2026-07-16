@@ -80,7 +80,7 @@ if (!(Test-Path $Exe)) {
     throw "mvo_cvlib executable not found. Run .\build.ps1 first."
 }
 
-$RunArgs = @("--no-gui")
+$RunArgs = @()
 if ($null -ne $MaxFrames) {
     $RunArgs += @("--max-frames", "$MaxFrames")
 }
