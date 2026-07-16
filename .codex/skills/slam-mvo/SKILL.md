@@ -1,3 +1,8 @@
+---
+name: slam-mvo
+description: Use when working on the MVO monocular visual odometry project, including SLAM/VO tracking, KLT, ORB-SLAM-style initialization, PnP, triangulation, map points, bundle adjustment with cvlib, loop closure, OpenCV, cvlib, Rerun visualization, runtime parameters, build/run validation, or MVO diagnostics.
+---
+
 # SLAM MVO Skill
 
 Use this skill when working on MVO, monocular visual odometry, KLT tracking,
