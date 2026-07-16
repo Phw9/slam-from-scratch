@@ -3,6 +3,7 @@
     "previous_map_point_radius": 0.08,
     "current_map_point_radius": 0.18,
     "trajectory_radius": 0.22,
-    "klt_track_radius": 3.0
+    "klt_track_radius": 3.0,
+    "loop_edge_radius": 0.3
   }
 }

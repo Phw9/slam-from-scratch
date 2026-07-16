@@ -89,6 +89,7 @@ bool initialize_visualizer(const AppConfig& config, Visualizer* visualizer) {
     visualizer->enabled = false;
     visualizer->parameters = config.parameters.visualization;
     visualizer->trajectory.clear();
+    visualizer->loop_edges.clear();
     if (visualizer_requested(config)) {
 #if MVO_HAS_RERUN
         visualizer->rec = std::make_unique<rerun::RecordingStream>("mvo");
@@ -176,6 +177,31 @@ void log_visualization(Visualizer* visualizer, int32_t frame_id,
         (void)tracked_points;
         (void)current_map_points;
         (void)all_map_points;
+#endif
+    }
+}
+
+void log_loop_edge(Visualizer* visualizer, int32_t frame_id,
+                   const cv::Point3f& match_center,
+                   const cv::Point3f& query_center) {
+    if (visualizer->enabled) {
+        visualizer->loop_edges.push_back({match_center, query_center});
+#if MVO_HAS_RERUN
+        std::vector<rerun::components::LineStrip3D> strips;
+        strips.reserve(visualizer->loop_edges.size());
+        for (const std::array<cv::Point3f, 2>& edge : visualizer->loop_edges) {
+            strips.emplace_back(std::vector<rerun::datatypes::Vec3D>{
+                rerun::datatypes::Vec3D(edge[0].x, edge[0].y, edge[0].z),
+                rerun::datatypes::Vec3D(edge[1].x, edge[1].y, edge[1].z)});
+        }
+        visualizer->rec->set_time_sequence("frame", frame_id);
+        visualizer->rec->log("world/loop_closures",
+                             rerun::LineStrips3D(strips)
+                                 .with_radii(
+                                     visualizer->parameters.loop_edge_radius)
+                                 .with_colors(rerun::Color(0, 200, 0)));
+#else
+        (void)frame_id;
 #endif
     }
 }

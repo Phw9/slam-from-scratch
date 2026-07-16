@@ -208,6 +208,15 @@ bool load_loop_closure_parameters(const std::filesystem::path& path,
         read_int_parameter(node, "orb_features", &parameters->orb_features);
         read_int_parameter(node, "recent_exclusion",
                            &parameters->recent_exclusion);
+        read_int_parameter(node, "min_matches", &parameters->min_matches);
+        read_int_parameter(node, "min_inliers", &parameters->min_inliers);
+        read_int_parameter(node, "ransac_max_iters",
+                           &parameters->ransac_max_iters);
+        read_double_parameter(node, "min_score", &parameters->min_score);
+        read_double_parameter(node, "match_ratio",
+                              &parameters->match_ratio);
+        read_double_parameter(node, "inlier_threshold",
+                              &parameters->inlier_threshold);
         ok = true;
     }
     return ok;
@@ -228,6 +237,8 @@ bool load_visualization_parameters(const std::filesystem::path& path,
                              &parameters->trajectory_radius);
         read_float_parameter(node, "klt_track_radius",
                              &parameters->klt_track_radius);
+        read_float_parameter(node, "loop_edge_radius",
+                             &parameters->loop_edge_radius);
         ok = true;
     }
     return ok;
@@ -298,6 +309,18 @@ void sanitize_parameters(MvoParameters* parameters) {
         std::max(1, parameters->loop_closure.orb_features);
     parameters->loop_closure.recent_exclusion =
         std::max(0, parameters->loop_closure.recent_exclusion);
+    parameters->loop_closure.min_matches =
+        std::max(8, parameters->loop_closure.min_matches);
+    parameters->loop_closure.min_inliers =
+        std::max(8, parameters->loop_closure.min_inliers);
+    parameters->loop_closure.ransac_max_iters =
+        std::max(1, parameters->loop_closure.ransac_max_iters);
+    parameters->loop_closure.min_score =
+        std::max(0.0, parameters->loop_closure.min_score);
+    parameters->loop_closure.match_ratio = std::min(
+        1.0, std::max(0.1, parameters->loop_closure.match_ratio));
+    parameters->loop_closure.inlier_threshold =
+        std::max(0.1, parameters->loop_closure.inlier_threshold);
 }
 
 }  // namespace

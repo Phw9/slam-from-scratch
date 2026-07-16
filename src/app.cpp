@@ -85,10 +85,17 @@ void log_startup(const AppConfig& config, const FrameSource& source,
 }
 
 void run_loop_query(const cv::Mat& image, int32_t frame_id,
-                    const LoopClosureParameters& parameters,
-                    BowDatabase* bow_db, TrackState* state) {
-    query_and_add_loop(image, bow_db, frame_id, parameters);
-    state->loop_queries = static_cast<int32_t>(bow_db->bows.size());
+                    const Pose& pose, const AppConfig& config,
+                    BowDatabase* bow_db, Visualizer* visualizer,
+                    TrackState* state) {
+    LoopClosureEvent closure;
+    if (query_and_add_loop(image, bow_db, frame_id, pose, config.camera,
+                           config.parameters.loop_closure,
+                           config.debug_geometry, &closure)) {
+        log_loop_edge(visualizer, frame_id, closure.match_center,
+                      closure.query_center);
+    }
+    state->loop_queries = static_cast<int32_t>(bow_db->keyframes.size());
 }
 
 void log_frame_state(Visualizer* visualizer, int32_t frame_id,
@@ -234,10 +241,9 @@ bool initialize_tracking(const AppConfig& config, FrameSource* source,
         log_visualization(visualizer, 1, image1, state->prev_points,
                           map_point_positions(state->map_points),
                           state->all_map_points, state->last_pose);
-        run_loop_query(image0, 0, config.parameters.loop_closure, bow_db,
-                       state);
-        run_loop_query(image1, 1, config.parameters.loop_closure, bow_db,
-                       state);
+        run_loop_query(image0, 0, pose0, config, bow_db, visualizer, state);
+        run_loop_query(image1, 1, state->last_pose, config, bow_db,
+                       visualizer, state);
     }
     return ok;
 }
@@ -319,8 +325,8 @@ void process_frame_with_tracks(const AppConfig& config, int32_t frame_id,
                   << " tracked=" << tracked_next.size()
                   << " state_held=1" << std::endl;
     }
-    run_loop_query(image, frame_id, config.parameters.loop_closure, bow_db,
-                   state);
+    run_loop_query(image, frame_id, state->last_pose, config, bow_db,
+                   visualizer, state);
     ++state->frames_processed;
     if (pnp_ok || recovered_ok) {
         log_frame_state(visualizer, frame_id, image, *state);
@@ -351,8 +357,8 @@ void process_frame_without_tracks(const AppConfig& config, int32_t frame_id,
         state->prev_points.clear();
         state->map_points.clear();
     }
-    run_loop_query(image, frame_id, config.parameters.loop_closure, bow_db,
-                   state);
+    run_loop_query(image, frame_id, state->last_pose, config, bow_db,
+                   visualizer, state);
     ++state->frames_processed;
     log_frame_state(visualizer, frame_id, image, *state);
     print_frame_stats(frame_id, *state);
@@ -419,6 +425,7 @@ int32_t run_app(AppConfig config) {
               << " keyframes=" << state.keyframes
               << " pnp_success=" << state.pnp_success
               << " loop_queries=" << state.loop_queries
+              << " loop_closures=" << bow_db.closures.size()
               << " map_points=" << count_positioned_map_points(
                      state.map_points)
               << " pending=" << count_pending_map_points(state.map_points)

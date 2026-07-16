@@ -70,7 +70,13 @@ struct BundleAdjustmentParameters {
 
 struct LoopClosureParameters {
     int32_t orb_features = 1000;
-    int32_t recent_exclusion = 5;
+    int32_t recent_exclusion = 100;
+    int32_t min_matches = 30;
+    int32_t min_inliers = 25;
+    int32_t ransac_max_iters = 500;
+    double min_score = 0.05;
+    double match_ratio = 0.75;
+    double inlier_threshold = 2.0;
 };
 
 struct VisualizationParameters {
@@ -78,6 +84,7 @@ struct VisualizationParameters {
     float current_map_point_radius = 0.18F;
     float trajectory_radius = 0.22F;
     float klt_track_radius = 3.0F;
+    float loop_edge_radius = 0.3F;
 };
 
 struct MvoParameters {
