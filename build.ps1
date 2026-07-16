@@ -290,3 +290,5 @@ if ($LASTEXITCODE -ne 0) {
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
+
+& (Join-Path $ScriptDir "fetch_data.ps1")

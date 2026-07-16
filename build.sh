@@ -344,3 +344,5 @@ fi
 
 cmake --log-level=WARNING "${cmake_args[@]}"
 cmake --build "$build_dir" --config "$config"
+
+bash "$script_dir/fetch_data.sh"

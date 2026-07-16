@@ -80,6 +80,10 @@ if (!(Test-Path $Exe)) {
     throw "mvo_cvlib executable not found. Run .\build.ps1 first."
 }
 
+if ($InputPath -eq "" -and $InputType -eq "") {
+    & (Join-Path $ScriptDir "fetch_data.ps1")
+}
+
 $RunArgs = @()
 if ($null -ne $MaxFrames) {
     $RunArgs += @("--max-frames", "$MaxFrames")

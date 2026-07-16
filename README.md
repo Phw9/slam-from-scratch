@@ -44,6 +44,15 @@ export PATH="$(python3 -c 'import site; print(site.USER_BASE)')/bin:$PATH" # add
 export PATH="$(cygpath -u "$APPDATA")/Python/Python314/Scripts:$PATH" # add rerun.exe to PATH on Git Bash
 ```
 
+## Data
+
+KITTI 00 grayscale images (`image/image_0`, 4541 frames) are not tracked in
+git. `build.ps1`/`build.sh` and `run.ps1`/`run.sh` download and extract
+`kitti00_image0.tar.gz` from the GitHub release `kitti00-data` automatically
+when `image/image_0` is missing. Manual fetch: `.\fetch_data.ps1` or
+`bash ./fetch_data.sh`; override the source with `MVO_DATA_URL`.
+`image/calib.txt`, `image/GTpose.txt`, and the DBoW2 vocabulary stay in git.
+
 ## File Structure
 
 ```text
@@ -51,6 +60,7 @@ MVO/
   CMakeLists.txt
   build.ps1, build.sh
   run.ps1, run.sh
+  fetch_data.ps1, fetch_data.sh
   bundle_cvlib.ps1, bundle_cvlib.sh
   configs/
     kitti_image_sequence.json

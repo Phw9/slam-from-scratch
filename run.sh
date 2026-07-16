@@ -5,6 +5,7 @@ config="Release"
 max_frames="3000"
 no_ba=()
 input_args=()
+custom_input=0
 rerun_enabled=1
 rerun_mode="spawn"
 rerun_save=""
@@ -67,7 +68,12 @@ while [[ $# -gt 0 ]]; do
             no_ba=(--no-ba)
             shift
             ;;
-        --input-config|--input-type|--input-path|--parameter-dir)
+        --input-type|--input-path)
+            custom_input=1
+            input_args+=("$1" "$2")
+            shift 2
+            ;;
+        --input-config|--parameter-dir)
             input_args+=("$1" "$2")
             shift 2
             ;;
@@ -158,6 +164,10 @@ fi
 
 if [[ "$rerun_enabled" -eq 1 && "$rerun_mode" == "spawn" ]] && ! command -v rerun >/dev/null 2>&1; then
     echo "warning: rerun viewer was not found in PATH; spawn may fail. Use --rerun-save build/mvo.rrd to record without a viewer." >&2
+fi
+
+if [[ "$custom_input" -eq 0 ]]; then
+    bash "$script_dir/fetch_data.sh"
 fi
 
 run_args=()
