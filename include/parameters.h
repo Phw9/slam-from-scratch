@@ -66,6 +66,7 @@ struct BundleAdjustmentParameters {
     int32_t max_iterations = 20;
     double loss_scale = 3.0;
     double min_baseline = 1.0e-6;
+    double max_anchor_scale_change = 2.0;
     double max_cost_growth = 1.05;
     double max_reprojection_p90 = 3.0;
 };

@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
+#include <limits>
 
 namespace mvo {
 namespace {
@@ -39,6 +40,23 @@ double point_distance(const cv::Point3f& a, const cv::Point3f& b) {
     return distance;
 }
 
+double pose_baseline_length(const Pose& reference_pose,
+                            const Pose& current_pose) {
+    const cv::Point3f reference_center =
+        camera_center_from_pose(reference_pose);
+    const cv::Point3f current_center = camera_center_from_pose(current_pose);
+    const double baseline = point_distance(reference_center, current_center);
+    return baseline;
+}
+
+double scale_change_ratio(double scale) {
+    double ratio = std::numeric_limits<double>::infinity();
+    if (std::isfinite(scale) && scale > 0.0) {
+        ratio = std::max(scale, 1.0 / scale);
+    }
+    return ratio;
+}
+
 void compute_anchor_similarity(const Pose& target_reference,
                                const Pose& optimized_reference,
                                const Pose& target_current,
@@ -47,18 +65,10 @@ void compute_anchor_similarity(const Pose& target_reference,
                                double* scale,
                                double q[9],
                                double c[3]) {
-    const cv::Point3f target_ref_center =
-        camera_center_from_pose(target_reference);
-    const cv::Point3f target_cur_center =
-        camera_center_from_pose(target_current);
-    const cv::Point3f opt_ref_center =
-        camera_center_from_pose(optimized_reference);
-    const cv::Point3f opt_cur_center =
-        camera_center_from_pose(optimized_current);
-    const double target_baseline =
-        point_distance(target_ref_center, target_cur_center);
-    const double optimized_baseline =
-        point_distance(opt_ref_center, opt_cur_center);
+    const double target_baseline = pose_baseline_length(
+        target_reference, target_current);
+    const double optimized_baseline = pose_baseline_length(
+        optimized_reference, optimized_current);
 
     *scale = 1.0;
     if (target_baseline > parameters.min_baseline &&
@@ -218,15 +228,23 @@ bool run_two_view_bundle_adjustment(
         Pose optimized_current;
         get_pose_row(poses, 0, &optimized_reference);
         get_pose_row(poses, 1, &optimized_current);
+        const Pose target_current_pose = *current_pose;
         double scale = 1.0;
         double q[9];
         double c[3];
         compute_anchor_similarity(reference_pose, optimized_reference,
-                                  *current_pose, optimized_current,
+                                  target_current_pose, optimized_current,
                                   parameters,
                                   &scale, q, c);
         Pose anchored_current =
             anchor_pose_to_reference(optimized_current, scale, q, c);
+        const double target_baseline = pose_baseline_length(
+            reference_pose, target_current_pose);
+        const double optimized_baseline = pose_baseline_length(
+            optimized_reference, optimized_current);
+        const double anchored_baseline = pose_baseline_length(
+            reference_pose, anchored_current);
+        const double anchor_scale_change = scale_change_ratio(scale);
         std::vector<cv::Point3f> optimized_points = input_points;
         for (int32_t i = 0; i < n_ba; ++i) {
             const cv::Point3f point(
@@ -253,8 +271,12 @@ bool run_two_view_bundle_adjustment(
             after_ref.p90 <= max_ref_p90 && after_cur.p90 <= max_cur_p90;
         const bool depth_ok = ba_points_have_positive_depth(
             optimized_points, reference_pose, anchored_current);
+        const bool baseline_ok =
+            target_baseline > parameters.min_baseline &&
+            optimized_baseline > parameters.min_baseline &&
+            anchor_scale_change <= parameters.max_anchor_scale_change;
         ok = ba_ec == cvlib::ErrorCode::kSuccess && cost_ok &&
-             reprojection_ok && depth_ok;
+             reprojection_ok && depth_ok && baseline_ok;
 
         if (ok) {
             *current_pose = anchored_current;
@@ -264,7 +286,8 @@ bool run_two_view_bundle_adjustment(
             }
         }
 
-        if (debug_geometry || ba_ec != cvlib::ErrorCode::kSuccess) {
+        if (debug_geometry || ba_ec != cvlib::ErrorCode::kSuccess ||
+            !baseline_ok) {
             std::cout << tag << "_ba status=" << static_cast<int32_t>(ba_ec)
                       << " accepted=" << ok
                       << " points=" << n_ba
@@ -274,6 +297,11 @@ bool run_two_view_bundle_adjustment(
                       << after_ref.p90
                       << " p90_cur=" << before_cur.p90 << "->"
                       << after_cur.p90
+                      << " baseline=" << target_baseline << "->"
+                      << optimized_baseline << "->" << anchored_baseline
+                      << " anchor_scale=" << scale
+                      << " anchor_scale_change=" << anchor_scale_change
+                      << " baseline_ok=" << baseline_ok
                       << std::endl;
         }
 

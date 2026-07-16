@@ -202,6 +202,8 @@ bool load_bundle_adjustment_parameters(
         read_double_parameter(node, "loss_scale", &parameters->loss_scale);
         read_double_parameter(node, "min_baseline",
                               &parameters->min_baseline);
+        read_double_parameter(node, "max_anchor_scale_change",
+                              &parameters->max_anchor_scale_change);
         read_double_parameter(node, "max_cost_growth",
                               &parameters->max_cost_growth);
         read_double_parameter(node, "max_reprojection_p90",
@@ -301,6 +303,16 @@ void sanitize_parameters(MvoParameters* parameters) {
         std::max(1, parameters->bundle_adjustment.min_points);
     parameters->bundle_adjustment.max_iterations =
         std::max(1, parameters->bundle_adjustment.max_iterations);
+    parameters->bundle_adjustment.loss_scale =
+        std::max(0.1, parameters->bundle_adjustment.loss_scale);
+    parameters->bundle_adjustment.min_baseline =
+        std::max(1.0e-12, parameters->bundle_adjustment.min_baseline);
+    parameters->bundle_adjustment.max_anchor_scale_change =
+        std::max(1.0, parameters->bundle_adjustment.max_anchor_scale_change);
+    parameters->bundle_adjustment.max_cost_growth =
+        std::max(1.0, parameters->bundle_adjustment.max_cost_growth);
+    parameters->bundle_adjustment.max_reprojection_p90 =
+        std::max(0.1, parameters->bundle_adjustment.max_reprojection_p90);
     parameters->loop_closure.orb_features =
         std::max(1, parameters->loop_closure.orb_features);
     parameters->loop_closure.recent_exclusion =

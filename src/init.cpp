@@ -217,22 +217,31 @@ bool initialize_two_view(const std::vector<cv::Point2f>& points0,
 
         if (ec == cvlib::ErrorCode::kSuccess && run_ba &&
             static_cast<int32_t>(state->map_points.size()) >=
-                parameters.initializer.min_map_points) {
-            run_two_view_bundle_adjustment(
-                pose0, &pose1, camera, initial_map.points0,
-                initial_map.points1, &initial_map.points3d,
-                parameters.bundle_adjustment,
-                "initial", debug_geometry);
-            state->map_points.clear();
-            state->map_points.reserve(initial_map.points3d.size());
-            for (int32_t i = 0;
-                 i < static_cast<int32_t>(initial_map.points3d.size());
-                 ++i) {
-                state->map_points.push_back(make_map_point(
-                    initial_map.points3d[static_cast<std::size_t>(i)],
-                    1, 2, 0.0, parameters.mapping,
-                    initial_descriptors[static_cast<std::size_t>(i)]));
+                parameters.bundle_adjustment.min_points) {
+            std::vector<cv::Point3f> ba_map_points =
+                map_point_positions(state->map_points);
+            Pose ba_pose = pose1;
+            const bool ba_ok = run_two_view_bundle_adjustment(
+                pose0, &ba_pose, camera, initial_map.points0,
+                initial_map.points1, &ba_map_points,
+                parameters.bundle_adjustment, "initial", debug_geometry);
+            if (ba_ok) {
+                pose1 = ba_pose;
+                for (int32_t i = 0;
+                     i < static_cast<int32_t>(ba_map_points.size());
+                     ++i) {
+                    state->map_points[static_cast<std::size_t>(i)].position =
+                        ba_map_points[static_cast<std::size_t>(i)];
+                }
             }
+        } else if (debug_geometry && ec == cvlib::ErrorCode::kSuccess &&
+                   run_ba) {
+            std::cout << "initial_ba skipped=1"
+                      << " reason=insufficient_points"
+                      << " points=" << state->map_points.size()
+                      << " min_points="
+                      << parameters.bundle_adjustment.min_points
+                      << std::endl;
         }
 
         cvlib::matrix_destroy(&p0);
