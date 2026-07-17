@@ -8,7 +8,7 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $DataDir = Join-Path $ScriptDir "image"
 $ImageDir = Join-Path $DataDir "image_0"
 $DataUrl = if ([string]::IsNullOrWhiteSpace($env:MVO_DATA_URL)) {
-    "https://github.com/Phw9/mvo/releases/download/kitti00-data/kitti00_image0.tar.gz"
+    "https://github.com/Phw9/slam-from-scratch/releases/download/kitti00-data/kitti00_image0.tar.gz"
 } else {
     $env:MVO_DATA_URL
 }

@@ -1,6 +1,9 @@
-# MVO
+# SLAM from Scratch
 
-MVO is a monocular visual odometry project written with my `cvlib`.
+Monocular visual odometry (MVO) built on hand-written solvers from my
+`cvlib` library: custom PnP, RANSAC, triangulation, and bundle adjustment
+(no g2o/Ceres), with KLT tracking, ORB-SLAM-style two-view initialization,
+DBoW2 loop closure, and Rerun 3D visualization on KITTI.
 
 Author: Hyunwoo Park <phphww93@gmail.com>
 

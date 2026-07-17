@@ -4,7 +4,7 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 data_dir="$script_dir/image"
 image_dir="$data_dir/image_0"
-data_url="${MVO_DATA_URL:-https://github.com/Phw9/mvo/releases/download/kitti00-data/kitti00_image0.tar.gz}"
+data_url="${MVO_DATA_URL:-https://github.com/Phw9/slam-from-scratch/releases/download/kitti00-data/kitti00_image0.tar.gz}"
 force=0
 
 if [[ "${1:-}" == "--force" ]]; then
