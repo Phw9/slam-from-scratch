@@ -5,6 +5,7 @@
 
 #include "types.h"
 #include "error_codes.h"
+#include "calib3d/multiview.h"
 #include "optimize/lm.h"
 
 #include <cstdint>
@@ -66,6 +67,35 @@ ErrorCode solve_pnp(const Matrix* world_pts, const Matrix* image_pts,
                     const Vector* t_init = nullptr,
                     const SolvePnpOptions* options = nullptr,
                     optimize::OptimizeReport* report = nullptr);
+
+/*
+RANSAC PnP: minimal 6-point DLT hypotheses scored by pixel reprojection
+error, followed by an LM refit (solve_pnp) on the consensus inlier set
+seeded with the best hypothesis. Points behind the camera under a
+hypothesis are scored as outliers rather than failing the iteration.
+Outputs use world-to-camera extrinsics: p_cam = R * p_world + t.
+
+@param world_pts N-by-3 world points (N >= 6).
+@param image_pts N-by-2 pixel observations.
+@param k Camera intrinsics (3x3).
+@param params RANSAC parameters; inlier_thresh is the reprojection error
+       in pixels and min_inliers must be >= 6.
+@param r_out Output rotation (3x3, must be allocated).
+@param t_out Output translation (length 3, must be allocated).
+@param inlier_mask Optional output mask, length N (0/1 per row).
+@param num_inliers Output number of inliers used in the refit.
+@param dist_coeff Optional distortion coefficients; null for none.
+@param options Optional solver options for the refit; null uses defaults.
+@param report Optional output optimization report; may be null.
+@returns ErrorCode (kNotConverged when no consensus reaches min_inliers).
+*/
+ErrorCode solve_pnp_ransac(const Matrix* world_pts, const Matrix* image_pts,
+                           const Matrix* k, RansacParams params,
+                           Matrix* r_out, Vector* t_out,
+                           int32_t* inlier_mask, int32_t* num_inliers,
+                           const Vector* dist_coeff = nullptr,
+                           const SolvePnpOptions* options = nullptr,
+                           optimize::OptimizeReport* report = nullptr);
 
 }  // namespace calib3d
 }  // namespace cvlib

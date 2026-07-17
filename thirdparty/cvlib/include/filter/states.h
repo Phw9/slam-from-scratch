@@ -35,10 +35,15 @@ static constexpr int32_t kImuOffRot       = 6;
 static constexpr int32_t kImuOffBa        = 9;
 static constexpr int32_t kImuOffBg        = 12;
 static constexpr int32_t kImuNoiseDim     = 12;
-static constexpr int32_t kImuNoiseOffNa   = 0;
-static constexpr int32_t kImuNoiseOffNg   = 3;
-static constexpr int32_t kImuNoiseOffNba  = 6;
-static constexpr int32_t kImuNoiseOffNbg  = 9;
+static constexpr int32_t kImuNoiseOffNg   = 0;
+static constexpr int32_t kImuNoiseOffNa   = 3;
+static constexpr int32_t kImuNoiseOffNbg  = 6;
+static constexpr int32_t kImuNoiseOffNba  = 9;
+
+// Gravity-augmented ImuGravityState sizes: the tangent extends the
+// ImuState ordering with a trailing gravity error block.
+static constexpr int32_t kImuGravityTangentDim = 18;
+static constexpr int32_t kImuOffGravity        = 15;
 
 // 3D point estimator with order in {1=P, 2=PV, 3=PVA}.
 struct PointState {
@@ -61,6 +66,19 @@ struct ImuState {
     Matrix R;
     Vector ba;
     Vector bg;
+    Matrix cov;
+};
+
+// 18-DOF gravity-augmented IMU strap-down state. Tangent order:
+// [dp dv dtheta dba dbg dg]; world-frame gravity is estimated in the
+// state instead of being a fixed input to the predict step.
+struct ImuGravityState {
+    Vector p;
+    Vector v;
+    Matrix R;
+    Vector ba;
+    Vector bg;
+    Vector g;
     Matrix cov;
 };
 
@@ -106,6 +124,22 @@ Releases buffers owned by an ImuState; safe on already-freed states.
 @param state Target state.
 */
 void imu_state_destroy(ImuState* state);
+
+/*
+Allocates an ImuGravityState with all nominal components zero and R = I.
+Set state.g to the local gravity estimate (e.g. [0, 0, -9.81]) before the
+first predict.
+
+@returns Freshly allocated identity ImuGravityState.
+*/
+ImuGravityState imu_gravity_state_create();
+
+/*
+Releases buffers owned by an ImuGravityState; safe on already-freed states.
+
+@param state Target state.
+*/
+void imu_gravity_state_destroy(ImuGravityState* state);
 
 /*
 Returns the tangent (covariance) dimension of a PointState.

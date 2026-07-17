@@ -121,6 +121,42 @@ Singular values at or below tol * max(singular values) are discarded.
 ErrorCode rank(const Matrix* m, int32_t* result,
                float64_t tol = kRankDefaultTolerance);
 
+static constexpr int32_t kTriangularLower = 0;
+static constexpr int32_t kTriangularUpper = 1;
+
+/*
+Solves the least-squares problem min ||A x - b||_2 via the SVD
+pseudoinverse. Rank-deficient systems return the minimum-norm solution.
+
+@param a Input matrix, m-by-n.
+@param b Input right-hand side, length m.
+@param x Output solution, length n; must be pre-allocated.
+@param tol Relative SV cutoff (default kRankDefaultTolerance).
+@returns ErrorCode.
+
+*/
+
+ErrorCode lstsq(const Matrix* a, const Vector* b, Vector* x,
+                float64_t tol = kRankDefaultTolerance);
+
+/*
+Solves T x = b for a square triangular matrix by forward substitution
+(lower) or back substitution (upper). Entries outside the selected
+triangle are ignored.
+
+@param t Input n-by-n triangular matrix.
+@param b Input right-hand side, length n.
+@param x Output solution, length n; must be pre-allocated.
+@param uplo kTriangularLower (default) or kTriangularUpper.
+@returns ErrorCode (kSingularMatrix when a diagonal entry falls below
+  kDefaultTolerance times the largest |diagonal| entry, a scale-invariant
+  guard).
+
+*/
+
+ErrorCode solve_triangular(const Matrix* t, const Vector* b, Vector* x,
+                           int32_t uplo = kTriangularLower);
+
 /*
 Computes nullity as number of columns minus numerical rank.
 

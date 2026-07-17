@@ -36,10 +36,17 @@ ErrorCode det(const Matrix* m, float64_t* result);
 Real QR factorization A = Q R via Modified Gram-Schmidt (reduced form).
 R diagonal entries are non-negative, matching numpy.linalg.qr conventions.
 
+Rank-deficient input is rejected: when an orthogonalized column collapses
+below kDefaultTolerance times its original norm (duplicate, linearly
+dependent, or zero columns), the function returns kSingularMatrix instead
+of silently emitting a non-orthonormal Q. Near-singular but numerically
+full-rank inputs still factorize; use rank() or svd() to diagnose
+conditioning.
+
 @param a Input m-by-n matrix with m >= n.
 @param q Output m-by-n with orthonormal columns; pre-allocated.
 @param r Output n-by-n upper triangular; pre-allocated.
-@returns ErrorCode.
+@returns ErrorCode (kSingularMatrix on rank-deficient input).
 */
 
 ErrorCode qr(const Matrix* a, Matrix* q, Matrix* r);

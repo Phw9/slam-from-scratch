@@ -1,4 +1,10 @@
 // Input validation helpers.
+//
+// Shape/null validators are cheap and run on every call. The deep
+// validators (finite, symmetric covariance, orthonormal rotation,
+// camera matrix) run on user-supplied per-call inputs -- measurements,
+// noise matrices, intrinsics -- but not on filter-evolved state or on
+// large point arrays, whose per-element scans would dominate hot paths.
 
 #ifndef CVLIB_VALIDATORS_H_
 #define CVLIB_VALIDATORS_H_
@@ -7,7 +13,15 @@
 #include "defs.h"
 #include "error_codes.h"
 
+#include <cmath>
+
 namespace cvlib {
+
+// Orthonormality tolerance for user-supplied rotation measurements.
+static constexpr float64_t kRotationOrthoTolerance = 1e-6;
+// Symmetry tolerance for user-supplied covariance/noise matrices,
+// relative to the largest |entry| (floored at 1.0 so zero matrices pass).
+static constexpr float64_t kCovarianceSymmetryTol = 1e-9;
 
 /*
 Validates that a matrix pointer and dimensions are usable for computation.
@@ -167,6 +181,170 @@ inline ErrorCode validate_transform_matrix(const Matrix* m) {
     } else if (m->rows != kTransformMatrixSize ||
                m->cols != kTransformMatrixSize) {
         result = ErrorCode::kInvalidShape;
+    }
+    return result;
+}
+
+/*
+Validates that every matrix entry is finite (rejects NaN/Inf).
+
+@param m Candidate matrix.
+@returns ErrorCode: kSuccess, kNullPointer, kInvalidDimension, or
+  kInvalidArgument on a non-finite entry.
+
+*/
+
+inline ErrorCode validate_finite_matrix(const Matrix* m) {
+    ErrorCode result = validate_matrix(m);
+    if (result == ErrorCode::kSuccess) {
+        const int32_t n = m->rows * m->cols;
+        for (int32_t i = 0; i < n; ++i) {
+            if (!std::isfinite(m->data[i])) {
+                result = ErrorCode::kInvalidArgument;
+                break;
+            }
+        }
+    }
+    return result;
+}
+
+/*
+Validates that every vector entry is finite (rejects NaN/Inf).
+
+@param v Candidate vector.
+@returns ErrorCode: kSuccess, kNullPointer, kInvalidDimension, or
+  kInvalidArgument on a non-finite entry.
+
+*/
+
+inline ErrorCode validate_finite_vector(const Vector* v) {
+    ErrorCode result = validate_vector(v);
+    if (result == ErrorCode::kSuccess) {
+        for (int32_t i = 0; i < v->size; ++i) {
+            if (!std::isfinite(v->data[i])) {
+                result = ErrorCode::kInvalidArgument;
+                break;
+            }
+        }
+    }
+    return result;
+}
+
+/*
+Deep validation for a user-supplied covariance / noise matrix: square,
+finite, and symmetric within kCovarianceSymmetryTol relative to the
+largest |entry|. Positive semi-definiteness is intentionally NOT
+checked: zero variances are legal and the SPD consumers already fall
+back to pseudo-inversion.
+
+@param m Candidate covariance matrix.
+@returns ErrorCode: kSuccess, kNullPointer, kInvalidDimension,
+  kInvalidShape, or kInvalidArgument (non-finite or asymmetric).
+
+*/
+
+inline ErrorCode validate_noise_covariance(const Matrix* m) {
+    ErrorCode result = validate_square_matrix(m);
+    if (result == ErrorCode::kSuccess) {
+        result = validate_finite_matrix(m);
+    }
+    if (result == ErrorCode::kSuccess) {
+        float64_t max_abs = 0.0;
+        const int32_t n = m->rows * m->cols;
+        for (int32_t i = 0; i < n; ++i) {
+            const float64_t a = std::fabs(m->data[i]);
+            if (a > max_abs) {
+                max_abs = a;
+            }
+        }
+        const float64_t tol =
+            kCovarianceSymmetryTol * ((max_abs > 1.0) ? max_abs : 1.0);
+        for (int32_t i = 0;
+             i < m->rows && result == ErrorCode::kSuccess; ++i) {
+            for (int32_t j = i + 1; j < m->cols; ++j) {
+                if (std::fabs(matrix_get(m, i, j) -
+                              matrix_get(m, j, i)) > tol) {
+                    result = ErrorCode::kInvalidArgument;
+                    break;
+                }
+            }
+        }
+    }
+    return result;
+}
+
+/*
+Deep validation for a user-supplied rotation measurement: 3x3, finite,
+orthonormal within kRotationOrthoTolerance, and right-handed (det > 0).
+Filter-evolved state rotations keep the shape-only
+validate_rotation_matrix.
+
+@param m Candidate rotation matrix.
+@returns ErrorCode: kSuccess, kNullPointer, kInvalidShape, or
+  kInvalidArgument (non-finite, non-orthonormal, or a reflection).
+
+*/
+
+inline ErrorCode validate_orthonormal_rotation(const Matrix* m) {
+    ErrorCode result = validate_rotation_matrix(m);
+    if (result == ErrorCode::kSuccess) {
+        result = validate_finite_matrix(m);
+    }
+    if (result == ErrorCode::kSuccess) {
+        for (int32_t i = 0;
+             i < kRotationMatrixSize && result == ErrorCode::kSuccess;
+             ++i) {
+            for (int32_t j = i; j < kRotationMatrixSize; ++j) {
+                float64_t dot = 0.0;
+                for (int32_t r = 0; r < kRotationMatrixSize; ++r) {
+                    dot += matrix_get(m, r, i) * matrix_get(m, r, j);
+                }
+                const float64_t expected = (i == j) ? 1.0 : 0.0;
+                if (std::fabs(dot - expected) > kRotationOrthoTolerance) {
+                    result = ErrorCode::kInvalidArgument;
+                    break;
+                }
+            }
+        }
+    }
+    if (result == ErrorCode::kSuccess) {
+        const float64_t det =
+            matrix_get(m, 0, 0) * (matrix_get(m, 1, 1) * matrix_get(m, 2, 2) -
+                                   matrix_get(m, 1, 2) * matrix_get(m, 2, 1)) -
+            matrix_get(m, 0, 1) * (matrix_get(m, 1, 0) * matrix_get(m, 2, 2) -
+                                   matrix_get(m, 1, 2) * matrix_get(m, 2, 0)) +
+            matrix_get(m, 0, 2) * (matrix_get(m, 1, 0) * matrix_get(m, 2, 1) -
+                                   matrix_get(m, 1, 1) * matrix_get(m, 2, 0));
+        if (det <= 0.0) {
+            result = ErrorCode::kInvalidArgument;
+        }
+    }
+    return result;
+}
+
+/*
+Deep validation for a 3x3 camera intrinsic matrix: finite entries and
+positive focal lengths K(0,0) and K(1,1).
+
+@param k Candidate intrinsic matrix.
+@returns ErrorCode: kSuccess, kNullPointer, kInvalidShape, or
+  kInvalidArgument (non-finite or non-positive focal length).
+
+*/
+
+inline ErrorCode validate_camera_matrix(const Matrix* k) {
+    ErrorCode result = validate_matrix(k);
+    if (result == ErrorCode::kSuccess &&
+        (k->rows != kRotationMatrixSize ||
+         k->cols != kRotationMatrixSize)) {
+        result = ErrorCode::kInvalidShape;
+    }
+    if (result == ErrorCode::kSuccess) {
+        result = validate_finite_matrix(k);
+    }
+    if (result == ErrorCode::kSuccess &&
+        (matrix_get(k, 0, 0) <= 0.0 || matrix_get(k, 1, 1) <= 0.0)) {
+        result = ErrorCode::kInvalidArgument;
     }
     return result;
 }

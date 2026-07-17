@@ -5,19 +5,15 @@
 
 #include "types.h"
 #include "error_codes.h"
+#include "ransac_params.h"
 
 #include <cstdint>
 
 namespace cvlib {
 namespace calib3d {
 
-// Tunable parameters for RANSAC-based robust two-view estimators.
-struct RansacParams {
-    int32_t   max_iters;
-    float64_t inlier_thresh;
-    int32_t   min_inliers;
-    uint32_t  seed;
-};
+// Shared RANSAC parameters; see cvlib/ransac_params.h.
+using RansacParams = ::cvlib::RansacParams;
 
 /*
 Triangulates 3D points from two projection matrices and matched image points.
@@ -169,6 +165,25 @@ normalised 8-point algorithm used by find_fundamental_matrix.
 ErrorCode find_fundamental_ransac(const Matrix* x1, const Matrix* x2,
                                   RansacParams params, Matrix* f_out,
                                   int32_t* inlier_mask, int32_t* num_inliers);
+
+/*
+RANSAC essential-matrix estimator for pixel-coordinate correspondences.
+Refits the consensus inlier set with find_essential_matrix.
+
+@param x1 First-view pixel points, N-by-2.
+@param x2 Second-view pixel points, N-by-2.
+@param k Camera intrinsics (3x3), shared by both views.
+@param params RANSAC parameters; inlier_thresh is the pixel Sampson
+       distance measured through F = K^-T E K^-1.
+@param e_out Output 3-by-3 essential matrix (refit on inliers).
+@param inlier_mask Optional output mask, length N (0/1 per row).
+@param num_inliers Output number of inliers used in the refit.
+@returns ErrorCode.
+*/
+ErrorCode find_essential_ransac(const Matrix* x1, const Matrix* x2,
+                                const Matrix* k, RansacParams params,
+                                Matrix* e_out, int32_t* inlier_mask,
+                                int32_t* num_inliers);
 
 }  // namespace calib3d
 }  // namespace cvlib

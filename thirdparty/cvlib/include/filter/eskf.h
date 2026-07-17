@@ -27,11 +27,19 @@ typedef ErrorCode (*ResidualFn)(const void* nominal, const Vector* z,
 typedef ErrorCode (*ObsJacOnManFn)(const void* nominal, void* user,
                                    Matrix* H);
 
-// Bundles the manifold injection + tangent dimension.
+// Fill the tangent-dim post-injection covariance reset Jacobian G for the
+// injected delta, so the update can apply P <- G P G^T after the Joseph
+// form (e.g. I - 0.5*[dtheta]x on a rotation block).
+typedef ErrorCode (*ResetJacFn)(const Vector* delta, void* user, Matrix* G);
+
+// Bundles the manifold injection + tangent dimension. reset_jac is
+// optional: leave it null to skip the post-injection covariance reset
+// (the first-order identity approximation).
 struct EskfManifold {
-    int32_t   tangent_dim;
-    BoxplusFn inject;
-    void*     user;
+    int32_t    tangent_dim;
+    BoxplusFn  inject;
+    void*      user;
+    ResetJacFn reset_jac;
 };
 
 // Bundles the measurement model on the manifold.
@@ -55,7 +63,9 @@ ErrorCode eskf_propagate_cov(Matrix* P, const Matrix* F, const Matrix* Q);
 
 /*
 ESKF measurement update: compute Kalman gain on tangent space, inject the
-correction into the nominal via mani.inject, and refresh P with Joseph form.
+correction into the nominal via mani.inject, and refresh P with Joseph
+form. When mani.reset_jac is set, the post-injection covariance reset
+P <- G P G^T is applied afterwards with G built from the injected delta.
 
 @param nominal Opaque pointer to the nominal state (e.g. PoseState*).
 @param P In-out tangent-dim covariance.

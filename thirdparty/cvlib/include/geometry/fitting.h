@@ -5,38 +5,45 @@
 
 #include "types.h"
 #include "error_codes.h"
+#include "ransac_params.h"
 
 #include <cstdint>
 
 namespace cvlib {
 namespace geometry {
 
-// Tunable parameters for RANSAC-based robust fitters.
-struct RansacParams {
-    int32_t   max_iters;
-    float64_t inlier_thresh;
-    int32_t   min_inliers;
-    uint32_t  seed;
-};
+// Shared RANSAC parameters; see cvlib/ransac_params.h.
+using RansacParams = ::cvlib::RansacParams;
 
 /*
 Fits a 3D plane ax + by + cz + d = 0 with ||[a,b,c]|| = 1.
 
-@param points Input points, N-by-3 (N >= 3).
+@param points Input points, N-by-3 (N >= 3, not all collinear or coincident).
 @param plane_out Output plane coefficients [a,b,c,d], length 4.
-@returns ErrorCode.
+@returns ErrorCode (kSingularMatrix when the points are collinear or
+         coincident, since the plane normal is then only one of infinitely
+         many equally valid choices).
 */
 ErrorCode fit_plane(const Matrix* points, Vector* plane_out);
 
 /*
 Fits a 3D line by PCA and returns a point and unit direction.
 
-@param points Input points, N-by-3 (N >= 2).
+@param points Input points, N-by-3 (N >= 2, not all coincident).
 @param point_out Output point on line, length 3.
 @param dir_out Output unit direction, length 3.
-@returns ErrorCode.
+@returns ErrorCode (kSingularMatrix when the points coincide).
 */
 ErrorCode fit_line_3d(const Matrix* points, Vector* point_out, Vector* dir_out);
+
+/*
+Fits a 2D line ax + by + c = 0 with ||[a,b]|| = 1 by total least squares.
+
+@param points Input points, N-by-2 (N >= 2, not all coincident).
+@param line_out Output line coefficients [a,b,c], length 3.
+@returns ErrorCode (kSingularMatrix when the points coincide).
+*/
+ErrorCode fit_line_2d(const Matrix* points, Vector* line_out);
 
 /*
 Fits a 2D circle x^2+y^2+ax+by+c=0 from points.
@@ -54,7 +61,9 @@ Fits a 2D ellipse with direct least-squares constraint.
 
 @param points Input points, N-by-2 (N >= 5).
 @param coeff_out Output conic coeff [A,B,C,D,E,F], length 6.
-@returns ErrorCode.
+@returns ErrorCode (kSingularMatrix when the unconstrained fit is not an
+         ellipse, i.e. B^2-4AC >= 0, which degenerate or near-degenerate
+         point sets can produce).
 */
 ErrorCode fit_ellipse(const Matrix* points, Vector* coeff_out);
 
@@ -86,6 +95,20 @@ RANSAC circle fitting: returns the consensus circle and inlier mask.
 ErrorCode fit_circle_ransac(const Matrix* points, RansacParams params,
                             Vector* center_out, float64_t* radius_out,
                             int32_t* inlier_mask, int32_t* num_inliers);
+
+/*
+RANSAC 2D line fitting: returns the consensus line and inlier mask.
+
+@param points Input points, N-by-2 (N >= 2).
+@param params RANSAC parameters; inlier_thresh is the perpendicular distance.
+@param line_out Output line [a, b, c], length 3 (refit on inliers).
+@param inlier_mask Output 0/1 mask per input row, length N (may be nullptr).
+@param num_inliers Output number of inliers used for the final fit.
+@returns ErrorCode (kNotConverged when no consensus reaches min_inliers).
+*/
+ErrorCode fit_line_ransac(const Matrix* points, RansacParams params,
+                          Vector* line_out, int32_t* inlier_mask,
+                          int32_t* num_inliers);
 
 }  // namespace geometry
 }  // namespace cvlib

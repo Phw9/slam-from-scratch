@@ -16,16 +16,183 @@ namespace cvlib {
 using float64_t = double;
 using float32_t = float;
 
+struct Matrix;
+
+// Non-owning read-only view of a rectangular sub-block of a Matrix.
+// Blocks borrow the parent buffer (no allocation, no ownership) and are
+// unchecked like Matrix::operator(): the caller guarantees the block
+// lies inside the parent, shapes match on assignment, and the parent
+// outlives the view.
+struct ConstMatrixBlock {
+    const float64_t* data;
+    int32_t stride;
+    int32_t row0;
+    int32_t col0;
+    int32_t rows;
+    int32_t cols;
+
+    float64_t operator()(int32_t r, int32_t c) const {
+        return data[(row0 + r) * stride + (col0 + c)];
+    }
+};
+
+// Mutable block view; assignment copies *elements* (Eigen-block style):
+//   m.block(6, 6, 3, 3) = exp_w;      // Matrix -> block
+//   m.block(0, 3, 3, 3) = 0.0;        // fill
+//   a.block(...) = b.block(...);      // block -> block (no overlap)
+struct MatrixBlock {
+    float64_t* data;
+    int32_t stride;
+    int32_t row0;
+    int32_t col0;
+    int32_t rows;
+    int32_t cols;
+
+    float64_t& operator()(int32_t r, int32_t c) {
+        return data[(row0 + r) * stride + (col0 + c)];
+    }
+    float64_t operator()(int32_t r, int32_t c) const {
+        return data[(row0 + r) * stride + (col0 + c)];
+    }
+
+    operator ConstMatrixBlock() const {
+        return ConstMatrixBlock{data, stride, row0, col0, rows, cols};
+    }
+
+    MatrixBlock& operator=(float64_t v) {
+        for (int32_t r = 0; r < rows; ++r) {
+            for (int32_t c = 0; c < cols; ++c) {
+                (*this)(r, c) = v;
+            }
+        }
+        return *this;
+    }
+    MatrixBlock& operator=(const ConstMatrixBlock& src) {
+        for (int32_t r = 0; r < rows; ++r) {
+            for (int32_t c = 0; c < cols; ++c) {
+                (*this)(r, c) = src(r, c);
+            }
+        }
+        return *this;
+    }
+    MatrixBlock& operator=(const MatrixBlock& src) {
+        return *this = static_cast<ConstMatrixBlock>(src);
+    }
+    MatrixBlock& operator=(const Matrix& src);
+};
+
 // Row-major matrix (heap-allocated).
+//
+// Element access convention: Matrix lvalues (locals, struct members,
+// dereferenced results) use the call operator --
+//   m(i, j) = v;   const float64_t x = m(i, j);
+// -- while pointer-typed call sites keep the matrix_get/matrix_set free
+// functions, which read better than (*m)(i, j). Both are unchecked, like
+// the free functions they mirror. Member functions keep the struct an
+// aggregate: brace initialization and the C-style API are unchanged.
 struct Matrix {
     float64_t* data;
     int32_t rows;
     int32_t cols;
+
+    float64_t& operator()(int32_t r, int32_t c) {
+        return data[r * cols + c];
+    }
+    float64_t operator()(int32_t r, int32_t c) const {
+        return data[r * cols + c];
+    }
+
+    // Writes v into every element without reallocating; unchecked like
+    // operator() (the caller guarantees data is non-null).
+    void fill(float64_t v) {
+        const int32_t n = rows * cols;
+        for (int32_t i = 0; i < n; ++i) {
+            data[i] = v;
+        }
+    }
+    void set_zero() { fill(0.0); }
+    // Writes 1 on the main diagonal and 0 elsewhere. Rectangular shapes
+    // are supported: the min(rows, cols) leading diagonal entries get 1.
+    void set_identity() {
+        set_zero();
+        const int32_t k = (rows < cols) ? rows : cols;
+        for (int32_t i = 0; i < k; ++i) {
+            data[i * cols + i] = 1.0;
+        }
+    }
+    // m = v fills every element with v; the implicit Matrix-to-Matrix
+    // assignment stays the usual shallow copy.
+    Matrix& operator=(float64_t v) {
+        fill(v);
+        return *this;
+    }
+
+    // Borrow a rows-by-cols view anchored at (r0, c0); see MatrixBlock
+    // for the unchecked contract.
+    MatrixBlock block(int32_t r0, int32_t c0, int32_t block_rows,
+                      int32_t block_cols) {
+        return MatrixBlock{data, cols, r0, c0, block_rows, block_cols};
+    }
+    ConstMatrixBlock block(int32_t r0, int32_t c0, int32_t block_rows,
+                           int32_t block_cols) const {
+        return ConstMatrixBlock{data, cols, r0, c0, block_rows,
+                                block_cols};
+    }
+
+    // Crop a block's elements into this pre-allocated matrix (shapes
+    // must match; unchecked).
+    Matrix& operator=(const ConstMatrixBlock& src) {
+        for (int32_t r = 0; r < rows; ++r) {
+            for (int32_t c = 0; c < cols; ++c) {
+                (*this)(r, c) = src(r, c);
+            }
+        }
+        return *this;
+    }
+
+    // Deep-copies src's elements into this pre-allocated matrix of the
+    // same shape (unchecked); the shallow Matrix-to-Matrix assignment
+    // stays untouched.
+    void copy_from(const Matrix& src) {
+        const int32_t n = rows * cols;
+        for (int32_t i = 0; i < n; ++i) {
+            data[i] = src.data[i];
+        }
+    }
 };
 
+inline MatrixBlock& MatrixBlock::operator=(const Matrix& src) {
+    for (int32_t r = 0; r < rows; ++r) {
+        for (int32_t c = 0; c < cols; ++c) {
+            (*this)(r, c) = src(r, c);
+        }
+    }
+    return *this;
+}
+
+// Element access mirrors Matrix: Vector lvalues use v[i] (unchecked);
+// pointer-typed call sites keep v->data[i].
 struct Vector {
     float64_t* data;
     int32_t size;
+
+    float64_t& operator[](int32_t i) { return data[i]; }
+    float64_t operator[](int32_t i) const { return data[i]; }
+
+    // Writes v into every element without reallocating; unchecked like
+    // operator[].
+    void fill(float64_t v) {
+        for (int32_t i = 0; i < size; ++i) {
+            data[i] = v;
+        }
+    }
+    void set_zero() { fill(0.0); }
+    // v = x fills every element with x; Vector-to-Vector assignment
+    // stays the usual shallow copy.
+    Vector& operator=(float64_t v) {
+        fill(v);
+        return *this;
+    }
 };
 
 struct Complex {
@@ -224,9 +391,7 @@ Allocates an n-by-n identity matrix with checked dimensions.
 inline ErrorCode matrix_identity_checked(int32_t n, Matrix* out) {
     ErrorCode ec = matrix_create_checked(n, n, out);
     if (ec == ErrorCode::kSuccess) {
-        for (int32_t i = 0; i < n; ++i) {
-            matrix_set(out, i, i, 1.0);
-        }
+        out->set_identity();
     }
     return ec;
 }
