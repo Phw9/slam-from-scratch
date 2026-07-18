@@ -500,8 +500,12 @@ Sim3 sim3_compose(const Sim3& a, const Sim3& b) {
 }
 
 struct Sim3Context {
-    const cvlib::Matrix* edges;    // K x 14, SE(3) measurements
+    const cvlib::Matrix* edges;    // K x 14, R/t measurements
     const cvlib::Matrix* weights;  // K x 3 [w_t, w_r, w_s]
+    // Measured log scale per edge; 0 for VO edges and for loop edges whose
+    // scale could not be measured. Kept beside the edge matrix so the SE(3)
+    // pose graph API keeps its K x 14 contract.
+    const std::vector<double>* log_scales;
     const std::vector<Sim3>* base; // all node states (fixed reads)
     int32_t fixed_pose_count;
     cvlib::Matrix r_mat;
@@ -558,7 +562,7 @@ bool sim3_residuals(const cvlib::float64_t* params, int32_t n_params,
         for (int32_t i = 0; i < 3; ++i) {
             z.t[i] = edge_row[11 + i];
         }
-        z.log_s = 0.0;
+        z.log_s = (*ctx->log_scales)[static_cast<std::size_t>(k)];
         const Sim3 error = sim3_compose(
             sim3_inverse(z), sim3_compose(s_to, sim3_inverse(s_from)));
         for (int32_t i = 0; i < 9; ++i) {
@@ -620,6 +624,7 @@ cvlib::ErrorCode optimize_sim3_pose_graph(
     std::vector<Sim3>* node_states,
     const cvlib::Matrix& edges,
     const cvlib::Matrix& weights,
+    const std::vector<double>& log_scales,
     int32_t fixed_pose_count,
     const cvlib::optimize::LMOptions& lm,
     cvlib::optimize::OptimizeReport* report) {
@@ -632,6 +637,7 @@ cvlib::ErrorCode optimize_sim3_pose_graph(
         Sim3Context ctx = {};
         ctx.edges = &edges;
         ctx.weights = &weights;
+        ctx.log_scales = &log_scales;
         ctx.base = &base;
         ctx.fixed_pose_count = fixed_pose_count;
         ctx.r_mat = cvlib::matrix_create(3, 3);
@@ -676,8 +682,10 @@ cvlib::ErrorCode optimize_sim3_pose_graph(
 
 bool append_sequential_edge(const Pose& from_pose, const Pose& to_pose,
                             int32_t from_row, int32_t to_row,
+                            double scale_weight,
                             std::vector<std::array<double, 14>>* edge_rows,
-                            std::vector<std::array<double, 3>>* weight_rows) {
+                            std::vector<std::array<double, 3>>* weight_rows,
+                            std::vector<double>* edge_log_scales) {
     cvlib::Matrix t_from = cvlib::matrix_create(4, 4);
     cvlib::Matrix t_to = cvlib::matrix_create(4, 4);
     cvlib::Matrix t_from_inv = cvlib::matrix_create(4, 4);
@@ -695,7 +703,12 @@ bool append_sequential_edge(const Pose& from_pose, const Pose& to_pose,
         row[1] = static_cast<double>(to_row);
         transform_to_params12(z, row.data() + 2);
         edge_rows->push_back(row);
-        weight_rows->push_back({1.0, 1.0, 1.0});
+        // The scale-equality weight decides how stiff the chain is against
+        // the loop edges' free scale: too soft and the optimizer pays for the
+        // loop gap with a scale jump instead of a trajectory correction.
+        weight_rows->push_back({1.0, 1.0, scale_weight});
+        // VO neighbours share the frontend's scale by construction.
+        edge_log_scales->push_back(0.0);
     }
     cvlib::matrix_destroy(&t_from);
     cvlib::matrix_destroy(&t_to);
@@ -708,21 +721,34 @@ void append_loop_edge(const LoopClosureEvent& event,
                       int32_t from_row, int32_t to_row,
                       const LoopClosureParameters& parameters,
                       std::vector<std::array<double, 14>>* edge_rows,
-                      std::vector<std::array<double, 3>>* weight_rows) {
-    // Rotation comes from the essential-matrix relative pose; translation
-    // uses the zero-baseline revisit constraint because the essential
-    // translation has no metric scale.
+                      std::vector<std::array<double, 3>>* weight_rows,
+                      std::vector<double>* edge_log_scales) {
     std::array<double, 14> row = {};
     row[0] = static_cast<double>(from_row);
     row[1] = static_cast<double>(to_row);
     for (int32_t i = 0; i < 9; ++i) {
         row[static_cast<std::size_t>(2 + i)] = event.relative_pose.r[i];
     }
+    if (event.has_metric_transform) {
+        // The 3D-3D fit measured the full Sim(3): translation in the map's
+        // own units and the scale ratio between the two revisits. With that
+        // in the edge the loop can no longer be satisfied by moving the
+        // gauge, which is the whole point of measuring it.
+        for (int32_t i = 0; i < 3; ++i) {
+            row[static_cast<std::size_t>(11 + i)] = event.relative_pose.t[i];
+        }
+        edge_log_scales->push_back(std::log(event.relative_scale));
+        weight_rows->push_back({parameters.pgo_loop_translation_weight,
+                                parameters.pgo_loop_rotation_weight,
+                                parameters.pgo_loop_scale_weight});
+    } else {
+        // Fallback: rotation only, translation from the zero-baseline revisit
+        // assumption, scale left free because nothing measured it.
+        edge_log_scales->push_back(0.0);
+        weight_rows->push_back({parameters.pgo_loop_translation_weight,
+                                parameters.pgo_loop_rotation_weight, 0.0});
+    }
     edge_rows->push_back(row);
-    // Relative scale between revisit frames is unobservable from the
-    // essential matrix, so loop edges leave scale free (weight 0).
-    weight_rows->push_back({parameters.pgo_loop_translation_weight,
-                            parameters.pgo_loop_rotation_weight, 0.0});
 }
 
 /*
@@ -814,7 +840,117 @@ bool compute_optimized_centers(const std::vector<Pose>& base_poses,
     return ok;
 }
 
+Sim3 sim3_from_correction(const LoopCorrection& correction) {
+    Sim3 s;
+    for (int32_t i = 0; i < 9; ++i) {
+        s.r[i] = correction.r[i];
+    }
+    for (int32_t i = 0; i < 3; ++i) {
+        s.t[i] = correction.t[i];
+    }
+    s.log_s = std::log(correction.scale);
+    return s;
+}
+
+LoopCorrection correction_from_sim3(const Sim3& s) {
+    LoopCorrection correction;
+    for (int32_t i = 0; i < 9; ++i) {
+        correction.r[i] = s.r[i];
+    }
+    for (int32_t i = 0; i < 3; ++i) {
+        correction.t[i] = s.t[i];
+    }
+    correction.scale = std::exp(s.log_s);
+    correction.valid = true;
+    return correction;
+}
+
+// Keeps the keyframe database on the optimized trajectory so the next graph
+// is built from corrected poses instead of re-deriving the same correction,
+// and so the duplicate-site centers stay comparable to live camera centers.
+void rebase_keyframes(BowDatabase* db,
+                      const std::vector<Pose>& corrected_poses) {
+    if (corrected_poses.size() == db->keyframes.size()) {
+        std::unordered_map<int32_t, cv::Point3f> centers;
+        centers.reserve(db->keyframes.size());
+        for (std::size_t i = 0; i < db->keyframes.size(); ++i) {
+            LoopKeyframe& keyframe = db->keyframes[i];
+            keyframe.pose = corrected_poses[i];
+            keyframe.camera_center = camera_center_from_pose(keyframe.pose);
+            centers[keyframe.frame_id] = keyframe.camera_center;
+        }
+        for (LoopClosureSite& site : db->closed_sites) {
+            const auto query_it = centers.find(site.query_frame);
+            const auto match_it = centers.find(site.match_frame);
+            if (query_it != centers.end()) {
+                site.query_center = query_it->second;
+            }
+            if (match_it != centers.end()) {
+                site.match_center = match_it->second;
+            }
+        }
+    }
+}
+
 }  // namespace
+
+Pose correct_pose(const LoopCorrection& correction, const Pose& pose) {
+    Pose corrected = pose;
+    if (correction.valid) {
+        corrected = sim3_to_pose(sim3_compose(sim3_from_pose(pose),
+                                              sim3_from_correction(correction)));
+    }
+    return corrected;
+}
+
+cv::Point3f correct_point(const LoopCorrection& correction,
+                          const cv::Point3f& point) {
+    cv::Point3f corrected = point;
+    if (correction.valid) {
+        // A world point moves by the inverse correction so that the camera
+        // observation s*R*x_w + t it produced stays the same after the pose
+        // itself has been pulled into the optimized frame.
+        const Sim3 inverse = sim3_inverse(sim3_from_correction(correction));
+        const double scale = std::exp(inverse.log_s);
+        const double x = static_cast<double>(point.x);
+        const double y = static_cast<double>(point.y);
+        const double z = static_cast<double>(point.z);
+        double out[3];
+        for (int32_t row = 0; row < 3; ++row) {
+            out[row] = inverse.t[row] +
+                       scale * (inverse.r[row * 3 + 0] * x +
+                                inverse.r[row * 3 + 1] * y +
+                                inverse.r[row * 3 + 2] * z);
+        }
+        corrected = cv::Point3f(static_cast<float>(out[0]),
+                                static_cast<float>(out[1]),
+                                static_cast<float>(out[2]));
+    }
+    return corrected;
+}
+
+void apply_loop_correction(const LoopCorrection& correction,
+                           TrackState* state,
+                           MapArchive* archive) {
+    if (correction.valid) {
+        state->last_pose = correct_pose(correction, state->last_pose);
+        state->prev_pose = correct_pose(correction, state->prev_pose);
+        for (MapPoint& point : state->map_points) {
+            if (point.has_position) {
+                point.position = correct_point(correction, point.position);
+            }
+            if (point.has_anchor) {
+                point.anchor_pose = correct_pose(correction, point.anchor_pose);
+            }
+            if (archive != nullptr && point.id >= 0 && point.has_position) {
+                const auto it = archive->positions.find(point.id);
+                if (it != archive->positions.end()) {
+                    it->second = point.position;
+                }
+            }
+        }
+    }
+}
 
 bool run_pose_graph_optimization(BowDatabase* db,
                                  const LoopClosureParameters& parameters,
@@ -822,18 +958,26 @@ bool run_pose_graph_optimization(BowDatabase* db,
                                  bool force,
                                  bool debug_geometry,
                                  std::vector<cv::Point3f>* optimized_centers,
-                                 std::vector<Pose>* corrected_poses) {
+                                 std::vector<Pose>* corrected_poses,
+                                 LoopCorrection* correction) {
     bool accepted = false;
     optimized_centers->clear();
+    if (correction != nullptr) {
+        *correction = LoopCorrection();
+    }
     const int32_t keyframe_count = static_cast<int32_t>(db->keyframes.size());
-    const bool pending =
-        static_cast<int32_t>(db->closures.size()) >
+    const int32_t pending_count =
+        static_cast<int32_t>(db->closures.size()) -
         db->optimized_closure_count;
+    const bool pending = pending_count > 0;
     // Hysteresis: while the revisit episode keeps producing verified
     // closures the constraints only accumulate; optimize once the episode
-    // has gone quiet, or immediately on the end-of-run flush.
+    // has gone quiet, or immediately on the end-of-run flush. Waiting out
+    // the gap delays the correction, so enough pending closures also fire
+    // the optimization right away.
     const bool episode_open =
         pending &&
+        pending_count < parameters.pgo_pending_trigger &&
         frame_id - db->closures.back().query_frame <
             parameters.pgo_episode_end_gap;
     if (episode_open && !force) {
@@ -866,13 +1010,15 @@ bool run_pose_graph_optimization(BowDatabase* db,
 
         std::vector<std::array<double, 14>> edge_rows;
         std::vector<std::array<double, 3>> weight_rows;
+        std::vector<double> edge_log_scales;
         bool edges_ok = true;
         for (std::size_t p = 0; edges_ok && p + 1 < nodes.size(); ++p) {
             edges_ok = append_sequential_edge(
                 db->keyframes[static_cast<std::size_t>(nodes[p])].pose,
                 db->keyframes[static_cast<std::size_t>(nodes[p + 1])].pose,
                 static_cast<int32_t>(p), static_cast<int32_t>(p + 1),
-                &edge_rows, &weight_rows);
+                parameters.pgo_scale_weight, &edge_rows, &weight_rows,
+                &edge_log_scales);
         }
         int32_t loop_edges = 0;
         int32_t earliest_match_row = static_cast<int32_t>(nodes.size());
@@ -885,7 +1031,7 @@ bool run_pose_graph_optimization(BowDatabase* db,
                 const int32_t match_row = node_row[match_it->second];
                 append_loop_edge(event, match_row,
                                  node_row[query_it->second], parameters,
-                                 &edge_rows, &weight_rows);
+                                 &edge_rows, &weight_rows, &edge_log_scales);
                 earliest_match_row = std::min(earliest_match_row, match_row);
                 ++loop_edges;
             }
@@ -930,7 +1076,8 @@ bool run_pose_graph_optimization(BowDatabase* db,
             lm.loss.scale = parameters.pgo_loss_scale;
             cvlib::optimize::OptimizeReport report = {};
             const cvlib::ErrorCode ec = optimize_sim3_pose_graph(
-                &node_states, edges, weights, fixed_pose_count, lm,
+                &node_states, edges, weights, edge_log_scales,
+                fixed_pose_count, lm,
                 &report);
             // Downstream consumers (diagnostics, interpolation, global BA)
             // work on the SE(3) equivalents of the optimized Sim(3) states.
@@ -945,8 +1092,22 @@ bool run_pose_graph_optimization(BowDatabase* db,
                 }
             }
 
+            // The newest node carries the correction the frontend has to
+            // follow; a wild scale there means the optimizer absorbed the
+            // loop error into the gauge instead of closing the loop, and
+            // handing that to tracking is worse than skipping the closure.
+            const Sim3 newest_correction = sim3_compose(
+                sim3_inverse(sim3_from_pose(
+                    db->keyframes[static_cast<std::size_t>(
+                        nodes[static_cast<std::size_t>(node_count - 1)])]
+                        .pose)),
+                node_states[static_cast<std::size_t>(node_count - 1)]);
+            const double correction_scale = std::exp(newest_correction.log_s);
+            const bool scale_ok =
+                correction_scale <= parameters.pgo_max_scale_change &&
+                correction_scale >= 1.0 / parameters.pgo_max_scale_change;
             const bool cost_ok = report.final_cost <= report.initial_cost;
-            if (ec == cvlib::ErrorCode::kSuccess && cost_ok) {
+            if (ec == cvlib::ErrorCode::kSuccess && cost_ok && scale_ok) {
                 std::vector<Pose> base_poses;
                 base_poses.reserve(static_cast<std::size_t>(keyframe_count));
                 for (const LoopKeyframe& keyframe : db->keyframes) {
@@ -956,9 +1117,20 @@ bool run_pose_graph_optimization(BowDatabase* db,
                                                      poses,
                                                      optimized_centers,
                                                      corrected_poses);
+            } else if (!scale_ok) {
+                std::cout << "pose_graph_scale_rejected frame=" << frame_id
+                          << " scale=" << correction_scale
+                          << " limit=" << parameters.pgo_max_scale_change
+                          << std::endl;
             }
             if (accepted) {
                 ++db->pgo_runs;
+                if (correction != nullptr) {
+                    *correction = correction_from_sim3(newest_correction);
+                }
+                if (corrected_poses != nullptr) {
+                    rebase_keyframes(db, *corrected_poses);
+                }
             }
             if (ec == cvlib::ErrorCode::kSuccess) {
                 // Loop-gap diagnostic: distance between the two loop

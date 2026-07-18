@@ -90,18 +90,19 @@ void log_startup(const AppConfig& config, const FrameSource& source,
 // refines poses and structure jointly and provides the published result.
 void run_backend_correction(const AppConfig& config, int32_t frame_id,
                             bool force, BowDatabase* bow_db,
-                            const MapArchive& archive,
-                            Visualizer* visualizer) {
+                            MapArchive* archive, Visualizer* visualizer,
+                            TrackState* state) {
     if (config.parameters.loop_closure.pgo_enabled != 0) {
         std::vector<cv::Point3f> optimized_centers;
         std::vector<Pose> corrected_poses;
+        LoopCorrection correction;
         if (run_pose_graph_optimization(
                 bow_db, config.parameters.loop_closure, frame_id, force,
                 config.debug_geometry, &optimized_centers,
-                &corrected_poses)) {
+                &corrected_poses, &correction)) {
             if (config.parameters.loop_closure.gba_enabled != 0) {
                 std::vector<cv::Point3f> ba_centers;
-                if (run_loop_global_ba(*bow_db, corrected_poses, archive,
+                if (run_loop_global_ba(*bow_db, corrected_poses, *archive,
                                        config.camera,
                                        config.parameters.loop_closure,
                                        frame_id, config.debug_geometry,
@@ -109,6 +110,13 @@ void run_backend_correction(const AppConfig& config, int32_t frame_id,
                     optimized_centers = ba_centers;
                 }
             }
+            // Tracking continues from the corrected frame, so the scale it
+            // triangulates in stays the scale the pose graph published.
+            apply_loop_correction(correction, state, archive);
+            std::cout << "loop_correction_applied frame=" << frame_id
+                      << " scale=" << correction.scale
+                      << " map_points=" << state->map_points.size()
+                      << std::endl;
             log_optimized_trajectory(visualizer, frame_id,
                                      optimized_centers);
             bow_db->last_corrected_centers = optimized_centers;
@@ -118,7 +126,7 @@ void run_backend_correction(const AppConfig& config, int32_t frame_id,
 
 void run_loop_query(const cv::Mat& image, int32_t frame_id,
                     const Pose& pose, const AppConfig& config,
-                    BowDatabase* bow_db, const MapArchive& archive,
+                    BowDatabase* bow_db, MapArchive* archive,
                     Visualizer* visualizer, TrackState* state) {
     LoopClosureEvent closure;
     if (query_and_add_loop(image, bow_db, frame_id, pose, config.camera,
@@ -128,7 +136,7 @@ void run_loop_query(const cv::Mat& image, int32_t frame_id,
                       closure.query_center);
     }
     run_backend_correction(config, frame_id, false, bow_db, archive,
-                           visualizer);
+                           visualizer, state);
     state->loop_queries = static_cast<int32_t>(bow_db->keyframes.size());
 }
 
@@ -282,10 +290,10 @@ bool initialize_tracking(const AppConfig& config, FrameSource* source,
         log_visualization(visualizer, 1, image1, state->prev_points,
                           map_point_positions(state->map_points),
                           state->all_map_points, state->last_pose);
-        run_loop_query(image0, 0, pose0, config, bow_db, *archive,
+        run_loop_query(image0, 0, pose0, config, bow_db, archive,
                        visualizer, state);
         run_loop_query(image1, 1, state->last_pose, config, bow_db,
-                       *archive, visualizer, state);
+                       archive, visualizer, state);
     }
     return ok;
 }
@@ -369,7 +377,7 @@ void process_frame_with_tracks(const AppConfig& config, int32_t frame_id,
                   << " state_held=1" << std::endl;
     }
     run_loop_query(image, frame_id, state->last_pose, config, bow_db,
-                   *archive, visualizer, state);
+                   archive, visualizer, state);
     ++state->frames_processed;
     if (pnp_ok || recovered_ok) {
         log_frame_state(visualizer, frame_id, image, *state);
@@ -402,7 +410,7 @@ void process_frame_without_tracks(const AppConfig& config, int32_t frame_id,
         state->map_points.clear();
     }
     run_loop_query(image, frame_id, state->last_pose, config, bow_db,
-                   *archive, visualizer, state);
+                   archive, visualizer, state);
     ++state->frames_processed;
     log_frame_state(visualizer, frame_id, image, *state);
     print_frame_stats(frame_id, *state);
@@ -460,20 +468,23 @@ int32_t run_app(AppConfig config) {
             }
             // Flush closures whose episode was still open at sequence end.
             run_backend_correction(config, state.frames_processed, true,
-                                   &bow_db, archive, &visualizer);
+                                   &bow_db, &archive, &visualizer, &state);
             // Dump trajectories for offline evaluation against GT.
             std::ofstream raw_out("build/trajectory_raw.txt");
             for (const LoopKeyframe& keyframe : bow_db.keyframes) {
-                const cv::Point3f c = camera_center_from_pose(keyframe.pose);
+                const cv::Point3f c =
+                    camera_center_from_pose(keyframe.vo_pose);
                 raw_out << keyframe.frame_id << " " << c.x << " " << c.y
                         << " " << c.z << "\n";
             }
+            // Keyframe poses live in the corrected frame once a pose graph
+            // run is applied, so they cover the whole sequence instead of
+            // stopping at the last optimization.
             std::ofstream corrected_out("build/trajectory_corrected.txt");
-            for (std::size_t i = 0;
-                 i < bow_db.last_corrected_centers.size(); ++i) {
-                const cv::Point3f& c = bow_db.last_corrected_centers[i];
-                corrected_out << bow_db.keyframes[i].frame_id << " " << c.x
-                              << " " << c.y << " " << c.z << "\n";
+            for (const LoopKeyframe& keyframe : bow_db.keyframes) {
+                const cv::Point3f c = camera_center_from_pose(keyframe.pose);
+                corrected_out << keyframe.frame_id << " " << c.x << " " << c.y
+                              << " " << c.z << "\n";
             }
             exit_code = 0;
         }

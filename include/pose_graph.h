@@ -58,17 +58,54 @@ cvlib::ErrorCode pose_graph_optimization(
     cvlib::optimize::OptimizeReport* report = nullptr);
 
 /*
+Sim(3) right correction C = S_old^-1 * S_new of the newest graph node, where a
+Sim(3) acts as x_cam = scale * R * x_w + t. The optimization moves the map into
+a new frame with its own scale, so the live tracking state has to follow it:
+poses update as S_live * C and world points as C^-1(X). Without this the
+frontend would keep triangulating in the pre-loop scale while the graph
+publishes another one, and the two estimates silently diverge.
+*/
+
+struct LoopCorrection {
+    double r[9] = {1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
+    double t[3] = {0.0, 0.0, 0.0};
+    double scale = 1.0;
+    bool valid = false;
+};
+
+Pose correct_pose(const LoopCorrection& correction, const Pose& pose);
+cv::Point3f correct_point(const LoopCorrection& correction,
+                          const cv::Point3f& point);
+
+/*
+Moves the live tracking state into the corrected frame: current and previous
+pose, active map point positions and their anchor poses, and the archived
+positions of those points. Historical map points keep their original frame
+because their own keyframe correction is not tracked per point.
+*/
+
+void apply_loop_correction(const LoopCorrection& correction,
+                           TrackState* state,
+                           MapArchive* archive);
+
+/*
 Builds a pose graph from stored keyframes (sequential VO edges) and verified
 loop closures (loop edges with the essential-matrix rotation and a zero
 translation revisit constraint), optimizes it, and returns corrected camera
-centers for every keyframe. Keyframe poses stay untouched so live tracking
-keeps its own frame; the result is for logging and Rerun inspection.
+centers for every keyframe.
+
+On acceptance the keyframe poses are rewritten to the optimized trajectory and
+`correction` receives the newest node's Sim(3) correction so the caller can pull
+the live tracking state into the same frame; a correction whose scale leaves
+[1/pgo_max_scale_change, pgo_max_scale_change] is rejected instead, because
+handing tracking a large scale jump costs more than skipping the closure.
 
 Runs with hysteresis: while the revisit episode is still producing verified
 closures the constraints only accumulate, and the optimization fires once no
-new closure has arrived for pgo_episode_end_gap frames (or immediately when
-force is set, for the end-of-run flush). Poses recorded before the earliest
-loop anchor are held fixed so the correction stays inside the loop segment.
+new closure has arrived for pgo_episode_end_gap frames, once pgo_pending_trigger
+closures are waiting, or immediately when force is set for the end-of-run flush.
+Poses recorded before the earliest loop anchor are held fixed so the correction
+stays inside the loop segment.
 */
 
 bool run_pose_graph_optimization(BowDatabase* db,
@@ -77,7 +114,8 @@ bool run_pose_graph_optimization(BowDatabase* db,
                                  bool force,
                                  bool debug_geometry,
                                  std::vector<cv::Point3f>* optimized_centers,
-                                 std::vector<Pose>* corrected_poses);
+                                 std::vector<Pose>* corrected_poses,
+                                 LoopCorrection* correction);
 
 /*
 Global bundle adjustment stage that runs after the pose graph: selects a

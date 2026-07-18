@@ -217,6 +217,28 @@ bool load_loop_closure_parameters(const std::filesystem::path& path,
                            &parameters->min_consecutive_detections);
         read_int_parameter(node, "consistency_window",
                            &parameters->consistency_window);
+        read_int_parameter(node, "metric_neighbor_gap",
+                           &parameters->metric_neighbor_gap);
+        read_int_parameter(node, "metric_min_inliers",
+                           &parameters->metric_min_inliers);
+        read_int_parameter(node, "metric_ransac_iters",
+                           &parameters->metric_ransac_iters);
+        read_double_parameter(node, "metric_inlier_ratio",
+                              &parameters->metric_inlier_ratio);
+        read_double_parameter(node, "metric_max_scale_ratio",
+                              &parameters->metric_max_scale_ratio);
+        read_int_parameter(node, "metric_required",
+                           &parameters->metric_required);
+        read_double_parameter(node, "metric_min_parallax_deg",
+                              &parameters->metric_min_parallax_deg);
+        read_double_parameter(node, "metric_max_reprojection_error",
+                              &parameters->metric_max_reprojection_error);
+        read_int_parameter(node, "duplicate_frame_gap",
+                           &parameters->duplicate_frame_gap);
+        read_int_parameter(node, "duplicate_match_window",
+                           &parameters->duplicate_match_window);
+        read_double_parameter(node, "duplicate_distance",
+                              &parameters->duplicate_distance);
         read_double_parameter(node, "min_score", &parameters->min_score);
         read_double_parameter(node, "match_ratio",
                               &parameters->match_ratio);
@@ -231,6 +253,8 @@ bool load_loop_closure_parameters(const std::filesystem::path& path,
                            &parameters->pgo_max_iterations);
         read_int_parameter(node, "pgo_episode_end_gap",
                            &parameters->pgo_episode_end_gap);
+        read_int_parameter(node, "pgo_pending_trigger",
+                           &parameters->pgo_pending_trigger);
         read_int_parameter(node, "pgo_loss_type",
                            &parameters->pgo_loss_type);
         read_double_parameter(node, "pgo_loss_scale",
@@ -239,6 +263,12 @@ bool load_loop_closure_parameters(const std::filesystem::path& path,
                               &parameters->pgo_loop_translation_weight);
         read_double_parameter(node, "pgo_loop_rotation_weight",
                               &parameters->pgo_loop_rotation_weight);
+        read_double_parameter(node, "pgo_loop_scale_weight",
+                              &parameters->pgo_loop_scale_weight);
+        read_double_parameter(node, "pgo_scale_weight",
+                              &parameters->pgo_scale_weight);
+        read_double_parameter(node, "pgo_max_scale_change",
+                              &parameters->pgo_max_scale_change);
         read_int_parameter(node, "gba_enabled", &parameters->gba_enabled);
         read_int_parameter(node, "gba_max_cameras",
                            &parameters->gba_max_cameras);
@@ -358,6 +388,28 @@ void sanitize_parameters(MvoParameters* parameters) {
         std::max(1, parameters->loop_closure.min_consecutive_detections);
     parameters->loop_closure.consistency_window =
         std::max(0, parameters->loop_closure.consistency_window);
+    parameters->loop_closure.metric_neighbor_gap =
+        std::max(1, parameters->loop_closure.metric_neighbor_gap);
+    parameters->loop_closure.metric_min_inliers =
+        std::max(4, parameters->loop_closure.metric_min_inliers);
+    parameters->loop_closure.metric_ransac_iters =
+        std::max(1, parameters->loop_closure.metric_ransac_iters);
+    parameters->loop_closure.metric_inlier_ratio =
+        std::max(1.0e-3, parameters->loop_closure.metric_inlier_ratio);
+    parameters->loop_closure.metric_max_scale_ratio =
+        std::max(1.0, parameters->loop_closure.metric_max_scale_ratio);
+    parameters->loop_closure.metric_min_parallax_deg =
+        std::max(0.0, parameters->loop_closure.metric_min_parallax_deg);
+    parameters->loop_closure.metric_max_reprojection_error =
+        std::max(0.1, parameters->loop_closure.metric_max_reprojection_error);
+    parameters->loop_closure.pgo_loop_scale_weight =
+        std::max(0.0, parameters->loop_closure.pgo_loop_scale_weight);
+    parameters->loop_closure.duplicate_frame_gap =
+        std::max(0, parameters->loop_closure.duplicate_frame_gap);
+    parameters->loop_closure.duplicate_match_window =
+        std::max(0, parameters->loop_closure.duplicate_match_window);
+    parameters->loop_closure.duplicate_distance =
+        std::max(0.0, parameters->loop_closure.duplicate_distance);
     parameters->loop_closure.min_score =
         std::max(0.0, parameters->loop_closure.min_score);
     parameters->loop_closure.match_ratio = std::min(
@@ -372,10 +424,16 @@ void sanitize_parameters(MvoParameters* parameters) {
         std::max(1, parameters->loop_closure.pgo_max_iterations);
     parameters->loop_closure.pgo_episode_end_gap =
         std::max(0, parameters->loop_closure.pgo_episode_end_gap);
+    parameters->loop_closure.pgo_pending_trigger =
+        std::max(1, parameters->loop_closure.pgo_pending_trigger);
     parameters->loop_closure.pgo_loss_type = std::min(
         2, std::max(0, parameters->loop_closure.pgo_loss_type));
     parameters->loop_closure.pgo_loss_scale =
         std::max(0.1, parameters->loop_closure.pgo_loss_scale);
+    parameters->loop_closure.pgo_scale_weight =
+        std::max(0.0, parameters->loop_closure.pgo_scale_weight);
+    parameters->loop_closure.pgo_max_scale_change =
+        std::max(1.0, parameters->loop_closure.pgo_max_scale_change);
     parameters->loop_closure.pgo_loop_translation_weight =
         std::max(0.0, parameters->loop_closure.pgo_loop_translation_weight);
     parameters->loop_closure.pgo_loop_rotation_weight =
