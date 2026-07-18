@@ -6,7 +6,8 @@
 - Keep filenames lowercase.
 - Keep module boundaries aligned with the current files:
   `feature`, `init`, `pose_estimation`, `map_data`, `bundle_adjustment`,
-  `loop_closure`, `visualization`, `frame_source`, `parameters`, and `app`.
+  `loop_closure`, `pose_graph`, `visualization`, `frame_source`,
+  `parameters`, and `app`.
 - Keep `src/cvlib_main.cpp` as a thin executable entry point.
 - Do not add broad rewrites unless needed for the requested behavior.
 

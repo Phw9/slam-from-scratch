@@ -7,6 +7,24 @@
     "min_matches": 30,
     "min_inliers": 25,
     "ransac_max_iters": 500,
-    "inlier_threshold": 2.0
+    "inlier_threshold": 2.0,
+    "max_rotation_error": 0.000001,
+    "min_consecutive_detections": 3,
+    "consistency_window": 30,
+    "pgo_enabled": 1,
+    "pgo_max_graph_poses": 150,
+    "pgo_max_iterations": 50,
+    "pgo_episode_end_gap": 30,
+    "pgo_loss_type": 0,
+    "pgo_loss_scale": 1.0,
+    "pgo_loop_translation_weight": 1.0,
+    "pgo_loop_rotation_weight": 1.0,
+    "gba_enabled": 0,
+    "gba_max_cameras": 150,
+    "gba_max_points": 3000,
+    "gba_min_observations": 2,
+    "gba_max_loop_points": 100,
+    "gba_max_iterations": 60,
+    "gba_loss_scale": 3.0
   }
 }

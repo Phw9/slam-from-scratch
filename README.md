@@ -65,6 +65,8 @@ MVO/
   run.ps1, run.sh
   fetch_data.ps1, fetch_data.sh
   bundle_cvlib.ps1, bundle_cvlib.sh
+  docs/
+    cvlib-update-analysis.md
   configs/
     kitti_image_sequence.json
     parameters/
@@ -88,6 +90,7 @@ MVO/
     map_data.h
     parameters.h
     pose_estimation.h
+    pose_graph.h
     types.h
     visualization.h
   src/
@@ -103,6 +106,7 @@ MVO/
     map_data.cpp
     parameters.cpp
     pose_estimation.cpp
+    pose_graph.cpp
     visualization.cpp
   thirdparty/
     cvlib/

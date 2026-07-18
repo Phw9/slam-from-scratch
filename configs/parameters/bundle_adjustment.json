@@ -3,6 +3,7 @@
     "max_points": 120,
     "min_points": 12,
     "max_iterations": 20,
+    "solver": 0,
     "loss_scale": 3.0,
     "min_baseline": 0.000001,
     "max_anchor_scale_change": 2.0,

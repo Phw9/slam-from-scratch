@@ -24,6 +24,7 @@ struct LoopKeyframe {
     std::vector<cv::KeyPoint> keypoints;
     cv::Mat descriptors;
     cv::Point3f camera_center;
+    Pose pose = {};
 };
 
 struct LoopClosureEvent {
@@ -35,6 +36,8 @@ struct LoopClosureEvent {
     Pose relative_pose = {};
     cv::Point3f query_center;
     cv::Point3f match_center;
+    std::vector<cv::Point2f> match_inlier_points;
+    std::vector<cv::Point2f> query_inlier_points;
 };
 
 struct BowDatabase {
@@ -42,6 +45,12 @@ struct BowDatabase {
     bool vocabulary_loaded = false;
     std::vector<LoopKeyframe> keyframes;
     std::vector<LoopClosureEvent> closures;
+    int32_t consistent_detections = 0;
+    int32_t last_candidate_frame = -1;
+    int32_t last_pgo_frame = -1;
+    int32_t optimized_closure_count = 0;
+    int32_t pgo_runs = 0;
+    std::vector<cv::Point3f> last_corrected_centers;
 };
 
 bool load_vocabulary(const std::string& path, BowDatabase* db);

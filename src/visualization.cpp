@@ -206,6 +206,23 @@ void log_loop_edge(Visualizer* visualizer, int32_t frame_id,
     }
 }
 
+void log_optimized_trajectory(Visualizer* visualizer, int32_t frame_id,
+                              const std::vector<cv::Point3f>& centers) {
+    if (visualizer->enabled && !centers.empty()) {
+#if MVO_HAS_RERUN
+        visualizer->rec->set_time_sequence("frame", frame_id);
+        visualizer->rec->log("world/optimized_trajectory",
+                             rerun::Points3D(points3d_for_rerun(centers))
+                                 .with_radii(
+                                     visualizer->parameters
+                                         .optimized_trajectory_radius)
+                                 .with_colors(rerun::Color(255, 165, 0)));
+#else
+        (void)frame_id;
+#endif
+    }
+}
+
 void flush_visualizer(Visualizer* visualizer) {
 #if MVO_HAS_RERUN
     if (visualizer->enabled) {

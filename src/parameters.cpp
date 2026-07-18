@@ -184,6 +184,7 @@ bool load_bundle_adjustment_parameters(
         read_int_parameter(node, "min_points", &parameters->min_points);
         read_int_parameter(node, "max_iterations",
                            &parameters->max_iterations);
+        read_int_parameter(node, "solver", &parameters->solver);
         read_double_parameter(node, "loss_scale", &parameters->loss_scale);
         read_double_parameter(node, "min_baseline",
                               &parameters->min_baseline);
@@ -212,11 +213,45 @@ bool load_loop_closure_parameters(const std::filesystem::path& path,
         read_int_parameter(node, "min_inliers", &parameters->min_inliers);
         read_int_parameter(node, "ransac_max_iters",
                            &parameters->ransac_max_iters);
+        read_int_parameter(node, "min_consecutive_detections",
+                           &parameters->min_consecutive_detections);
+        read_int_parameter(node, "consistency_window",
+                           &parameters->consistency_window);
         read_double_parameter(node, "min_score", &parameters->min_score);
         read_double_parameter(node, "match_ratio",
                               &parameters->match_ratio);
         read_double_parameter(node, "inlier_threshold",
                               &parameters->inlier_threshold);
+        read_double_parameter(node, "max_rotation_error",
+                              &parameters->max_rotation_error);
+        read_int_parameter(node, "pgo_enabled", &parameters->pgo_enabled);
+        read_int_parameter(node, "pgo_max_graph_poses",
+                           &parameters->pgo_max_graph_poses);
+        read_int_parameter(node, "pgo_max_iterations",
+                           &parameters->pgo_max_iterations);
+        read_int_parameter(node, "pgo_episode_end_gap",
+                           &parameters->pgo_episode_end_gap);
+        read_int_parameter(node, "pgo_loss_type",
+                           &parameters->pgo_loss_type);
+        read_double_parameter(node, "pgo_loss_scale",
+                              &parameters->pgo_loss_scale);
+        read_double_parameter(node, "pgo_loop_translation_weight",
+                              &parameters->pgo_loop_translation_weight);
+        read_double_parameter(node, "pgo_loop_rotation_weight",
+                              &parameters->pgo_loop_rotation_weight);
+        read_int_parameter(node, "gba_enabled", &parameters->gba_enabled);
+        read_int_parameter(node, "gba_max_cameras",
+                           &parameters->gba_max_cameras);
+        read_int_parameter(node, "gba_max_points",
+                           &parameters->gba_max_points);
+        read_int_parameter(node, "gba_min_observations",
+                           &parameters->gba_min_observations);
+        read_int_parameter(node, "gba_max_loop_points",
+                           &parameters->gba_max_loop_points);
+        read_int_parameter(node, "gba_max_iterations",
+                           &parameters->gba_max_iterations);
+        read_double_parameter(node, "gba_loss_scale",
+                              &parameters->gba_loss_scale);
         ok = true;
     }
     return ok;
@@ -239,6 +274,8 @@ bool load_visualization_parameters(const std::filesystem::path& path,
                              &parameters->klt_track_radius);
         read_float_parameter(node, "loop_edge_radius",
                              &parameters->loop_edge_radius);
+        read_float_parameter(node, "optimized_trajectory_radius",
+                             &parameters->optimized_trajectory_radius);
         ok = true;
     }
     return ok;
@@ -295,6 +332,8 @@ void sanitize_parameters(MvoParameters* parameters) {
         std::max(1, parameters->bundle_adjustment.min_points);
     parameters->bundle_adjustment.max_iterations =
         std::max(1, parameters->bundle_adjustment.max_iterations);
+    parameters->bundle_adjustment.solver = std::min(
+        1, std::max(0, parameters->bundle_adjustment.solver));
     parameters->bundle_adjustment.loss_scale =
         std::max(0.1, parameters->bundle_adjustment.loss_scale);
     parameters->bundle_adjustment.min_baseline =
@@ -315,12 +354,44 @@ void sanitize_parameters(MvoParameters* parameters) {
         std::max(8, parameters->loop_closure.min_inliers);
     parameters->loop_closure.ransac_max_iters =
         std::max(1, parameters->loop_closure.ransac_max_iters);
+    parameters->loop_closure.min_consecutive_detections =
+        std::max(1, parameters->loop_closure.min_consecutive_detections);
+    parameters->loop_closure.consistency_window =
+        std::max(0, parameters->loop_closure.consistency_window);
     parameters->loop_closure.min_score =
         std::max(0.0, parameters->loop_closure.min_score);
     parameters->loop_closure.match_ratio = std::min(
         1.0, std::max(0.1, parameters->loop_closure.match_ratio));
     parameters->loop_closure.inlier_threshold =
         std::max(0.1, parameters->loop_closure.inlier_threshold);
+    parameters->loop_closure.max_rotation_error =
+        std::max(1.0e-12, parameters->loop_closure.max_rotation_error);
+    parameters->loop_closure.pgo_max_graph_poses =
+        std::max(2, parameters->loop_closure.pgo_max_graph_poses);
+    parameters->loop_closure.pgo_max_iterations =
+        std::max(1, parameters->loop_closure.pgo_max_iterations);
+    parameters->loop_closure.pgo_episode_end_gap =
+        std::max(0, parameters->loop_closure.pgo_episode_end_gap);
+    parameters->loop_closure.pgo_loss_type = std::min(
+        2, std::max(0, parameters->loop_closure.pgo_loss_type));
+    parameters->loop_closure.pgo_loss_scale =
+        std::max(0.1, parameters->loop_closure.pgo_loss_scale);
+    parameters->loop_closure.pgo_loop_translation_weight =
+        std::max(0.0, parameters->loop_closure.pgo_loop_translation_weight);
+    parameters->loop_closure.pgo_loop_rotation_weight =
+        std::max(0.0, parameters->loop_closure.pgo_loop_rotation_weight);
+    parameters->loop_closure.gba_max_cameras =
+        std::max(2, parameters->loop_closure.gba_max_cameras);
+    parameters->loop_closure.gba_max_points =
+        std::max(1, parameters->loop_closure.gba_max_points);
+    parameters->loop_closure.gba_min_observations =
+        std::max(2, parameters->loop_closure.gba_min_observations);
+    parameters->loop_closure.gba_max_loop_points =
+        std::max(0, parameters->loop_closure.gba_max_loop_points);
+    parameters->loop_closure.gba_max_iterations =
+        std::max(1, parameters->loop_closure.gba_max_iterations);
+    parameters->loop_closure.gba_loss_scale =
+        std::max(0.1, parameters->loop_closure.gba_loss_scale);
 }
 
 }  // namespace

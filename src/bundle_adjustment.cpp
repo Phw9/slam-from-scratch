@@ -214,6 +214,9 @@ bool run_two_view_bundle_adjustment(
 
         cvlib::calib3d::BAOptions options =
             cvlib::calib3d::default_ba_options();
+        options.solver = parameters.solver == 1
+                             ? cvlib::calib3d::kBASolverSchur
+                             : cvlib::calib3d::kBASolverDense;
         options.lm.max_iter = parameters.max_iterations;
         options.lm.loss.type = cvlib::optimize::kLossHuber;
         options.lm.loss.scale = parameters.loss_scale;

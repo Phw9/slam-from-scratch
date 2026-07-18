@@ -41,12 +41,24 @@ void camera_points_to_world(const std::vector<cv::Point3f>& camera_points,
     }
 }
 
+namespace {
+
+// Persistent map-point identity for the observation archive; the pipeline
+// is single-threaded so a plain counter is safe.
+int32_t allocate_map_point_id() {
+    static int32_t next_map_point_id = 0;
+    return next_map_point_id++;
+}
+
+}  // namespace
+
 MapPoint make_map_point(const cv::Point3f& position,
                         int32_t frame_id,
                         int32_t track_length,
                         double reprojection_error,
                         const MappingParameters& parameters) {
     MapPoint point;
+    point.id = allocate_map_point_id();
     point.position = position;
     point.created_frame = frame_id;
     point.last_seen_frame = frame_id;
@@ -65,6 +77,7 @@ MapPoint make_pending_map_point(const cv::Point2f& observation,
                                 int32_t frame_id,
                                 const MappingParameters& parameters) {
     MapPoint point;
+    point.id = allocate_map_point_id();
     point.anchor_observation = observation;
     point.anchor_pose = anchor_pose;
     point.created_frame = frame_id;

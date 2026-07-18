@@ -61,6 +61,7 @@ struct BundleAdjustmentParameters {
     int32_t max_points = 120;
     int32_t min_points = 12;
     int32_t max_iterations = 20;
+    int32_t solver = 0;
     double loss_scale = 3.0;
     double min_baseline = 1.0e-6;
     double max_anchor_scale_change = 2.0;
@@ -74,9 +75,27 @@ struct LoopClosureParameters {
     int32_t min_matches = 30;
     int32_t min_inliers = 25;
     int32_t ransac_max_iters = 500;
+    int32_t min_consecutive_detections = 3;
+    int32_t consistency_window = 30;
     double min_score = 0.05;
     double match_ratio = 0.75;
     double inlier_threshold = 2.0;
+    double max_rotation_error = 1.0e-6;
+    int32_t pgo_enabled = 1;
+    int32_t pgo_max_graph_poses = 150;
+    int32_t pgo_max_iterations = 50;
+    int32_t pgo_episode_end_gap = 30;
+    int32_t pgo_loss_type = 0;
+    double pgo_loss_scale = 1.0;
+    double pgo_loop_translation_weight = 1.0;
+    double pgo_loop_rotation_weight = 1.0;
+    int32_t gba_enabled = 1;
+    int32_t gba_max_cameras = 150;
+    int32_t gba_max_points = 3000;
+    int32_t gba_min_observations = 2;
+    int32_t gba_max_loop_points = 100;
+    int32_t gba_max_iterations = 60;
+    double gba_loss_scale = 3.0;
 };
 
 struct VisualizationParameters {
@@ -85,6 +104,7 @@ struct VisualizationParameters {
     float trajectory_radius = 0.22F;
     float klt_track_radius = 3.0F;
     float loop_edge_radius = 0.3F;
+    float optimized_trajectory_radius = 0.22F;
 };
 
 struct MvoParameters {

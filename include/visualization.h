@@ -39,6 +39,8 @@ void log_visualization(Visualizer* visualizer, int32_t frame_id,
 void log_loop_edge(Visualizer* visualizer, int32_t frame_id,
                    const cv::Point3f& match_center,
                    const cv::Point3f& query_center);
+void log_optimized_trajectory(Visualizer* visualizer, int32_t frame_id,
+                              const std::vector<cv::Point3f>& centers);
 void flush_visualizer(Visualizer* visualizer);
 
 }  // namespace mvo

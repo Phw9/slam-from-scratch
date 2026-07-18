@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace mvo {
@@ -26,6 +27,7 @@ struct Pose {
 };
 
 struct MapPoint {
+    int32_t id = -1;
     cv::Point3f position;
     cv::Point2f anchor_observation;
     Pose anchor_pose;
@@ -38,6 +40,20 @@ struct MapPoint {
     bool has_position = true;
     bool has_anchor = false;
     bool candidate = true;
+};
+
+// Per-frame record of a PnP-inlier observation of a persistent map point,
+// kept for global bundle adjustment after loop closures.
+struct MapObservation {
+    int32_t frame_id = 0;
+    int32_t point_id = 0;
+    cv::Point2f pixel;
+};
+
+struct MapArchive {
+    std::vector<MapObservation> observations;
+    std::unordered_map<int32_t, cv::Point3f> positions;
+    std::unordered_map<int32_t, int32_t> last_seen;
 };
 
 struct TrackState {

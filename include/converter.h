@@ -29,6 +29,8 @@ double median_parallax_deg(const std::vector<cv::Point3f>& map_points,
 double parallax_deg_for_point(const cv::Point3f& point,
                               const Pose& pose0,
                               const Pose& pose1);
+double rotation_orthonormality_error(const Pose& pose);
+double rotation_determinant(const Pose& pose);
 double reprojection_residual(const cv::Point3f& point,
                              const cv::Point2f& observation,
                              const Pose& pose,

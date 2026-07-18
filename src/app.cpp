@@ -7,11 +7,13 @@
 #include "loop_closure.h"
 #include "map_data.h"
 #include "pose_estimation.h"
+#include "pose_graph.h"
 #include "visualization.h"
 
 #include <algorithm>
 #include <cstddef>
 #include <cmath>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -84,10 +86,40 @@ void log_startup(const AppConfig& config, const FrameSource& source,
               << std::endl;
 }
 
+// PGO aligns the trajectory to the loop constraints; global Schur BA then
+// refines poses and structure jointly and provides the published result.
+void run_backend_correction(const AppConfig& config, int32_t frame_id,
+                            bool force, BowDatabase* bow_db,
+                            const MapArchive& archive,
+                            Visualizer* visualizer) {
+    if (config.parameters.loop_closure.pgo_enabled != 0) {
+        std::vector<cv::Point3f> optimized_centers;
+        std::vector<Pose> corrected_poses;
+        if (run_pose_graph_optimization(
+                bow_db, config.parameters.loop_closure, frame_id, force,
+                config.debug_geometry, &optimized_centers,
+                &corrected_poses)) {
+            if (config.parameters.loop_closure.gba_enabled != 0) {
+                std::vector<cv::Point3f> ba_centers;
+                if (run_loop_global_ba(*bow_db, corrected_poses, archive,
+                                       config.camera,
+                                       config.parameters.loop_closure,
+                                       frame_id, config.debug_geometry,
+                                       &ba_centers)) {
+                    optimized_centers = ba_centers;
+                }
+            }
+            log_optimized_trajectory(visualizer, frame_id,
+                                     optimized_centers);
+            bow_db->last_corrected_centers = optimized_centers;
+        }
+    }
+}
+
 void run_loop_query(const cv::Mat& image, int32_t frame_id,
                     const Pose& pose, const AppConfig& config,
-                    BowDatabase* bow_db, Visualizer* visualizer,
-                    TrackState* state) {
+                    BowDatabase* bow_db, const MapArchive& archive,
+                    Visualizer* visualizer, TrackState* state) {
     LoopClosureEvent closure;
     if (query_and_add_loop(image, bow_db, frame_id, pose, config.camera,
                            config.parameters.loop_closure,
@@ -95,6 +127,8 @@ void run_loop_query(const cv::Mat& image, int32_t frame_id,
         log_loop_edge(visualizer, frame_id, closure.match_center,
                       closure.query_center);
     }
+    run_backend_correction(config, frame_id, false, bow_db, archive,
+                           visualizer);
     state->loop_queries = static_cast<int32_t>(bow_db->keyframes.size());
 }
 
@@ -168,7 +202,8 @@ void collect_pnp_candidates(const std::vector<MapPoint>& map_points,
 void retain_pnp_inlier_tracks(const AppConfig& config, int32_t frame_id,
                               const Pose& pose,
                               std::vector<cv::Point2f>* tracked_points,
-                              std::vector<MapPoint>* map_points) {
+                              std::vector<MapPoint>* map_points,
+                              MapArchive* archive) {
     std::vector<cv::Point2f> inlier_points;
     std::vector<MapPoint> inlier_map_points;
     inlier_points.reserve(tracked_points->size());
@@ -186,6 +221,12 @@ void retain_pnp_inlier_tracks(const AppConfig& config, int32_t frame_id,
                     config.parameters.pnp.reprojection_inlier_threshold) {
                 update_tracked_map_point(&point, frame_id, residual,
                                          config.parameters.mapping);
+                if (point.id >= 0) {
+                    archive->observations.push_back(
+                        {frame_id, point.id, observation});
+                    archive->positions[point.id] = point.position;
+                    archive->last_seen[point.id] = frame_id;
+                }
                 inlier_points.push_back(observation);
                 inlier_map_points.push_back(point);
             }
@@ -203,7 +244,7 @@ void retain_pnp_inlier_tracks(const AppConfig& config, int32_t frame_id,
 
 bool initialize_tracking(const AppConfig& config, FrameSource* source,
                          Visualizer* visualizer, BowDatabase* bow_db,
-                         TrackState* state) {
+                         MapArchive* archive, TrackState* state) {
     cv::Mat image0;
     cv::Mat image1;
     std::vector<cv::Point2f> initial_points;
@@ -241,16 +282,18 @@ bool initialize_tracking(const AppConfig& config, FrameSource* source,
         log_visualization(visualizer, 1, image1, state->prev_points,
                           map_point_positions(state->map_points),
                           state->all_map_points, state->last_pose);
-        run_loop_query(image0, 0, pose0, config, bow_db, visualizer, state);
-        run_loop_query(image1, 1, state->last_pose, config, bow_db,
+        run_loop_query(image0, 0, pose0, config, bow_db, *archive,
                        visualizer, state);
+        run_loop_query(image1, 1, state->last_pose, config, bow_db,
+                       *archive, visualizer, state);
     }
     return ok;
 }
 
 void process_frame_with_tracks(const AppConfig& config, int32_t frame_id,
                                const cv::Mat& image, BowDatabase* bow_db,
-                               Visualizer* visualizer, TrackState* state) {
+                               MapArchive* archive, Visualizer* visualizer,
+                               TrackState* state) {
     std::vector<cv::Point2f> tracked_prev;
     std::vector<cv::Point2f> raw_tracked_next;
     std::vector<int32_t> tracked_indices;
@@ -295,7 +338,7 @@ void process_frame_with_tracks(const AppConfig& config, int32_t frame_id,
 
     if (pnp_ok) {
         retain_pnp_inlier_tracks(config, frame_id, state->last_pose,
-                                 &tracked_next, &next_map_points);
+                                 &tracked_next, &next_map_points, archive);
         triangulate_pending_map_points(
             tracked_next, state->last_pose, config.camera, config.parameters,
             frame_id, config.debug_geometry, &next_map_points,
@@ -326,7 +369,7 @@ void process_frame_with_tracks(const AppConfig& config, int32_t frame_id,
                   << " state_held=1" << std::endl;
     }
     run_loop_query(image, frame_id, state->last_pose, config, bow_db,
-                   visualizer, state);
+                   *archive, visualizer, state);
     ++state->frames_processed;
     if (pnp_ok || recovered_ok) {
         log_frame_state(visualizer, frame_id, image, *state);
@@ -343,7 +386,8 @@ void process_frame_with_tracks(const AppConfig& config, int32_t frame_id,
 
 void process_frame_without_tracks(const AppConfig& config, int32_t frame_id,
                                   const cv::Mat& image, BowDatabase* bow_db,
-                                  Visualizer* visualizer, TrackState* state) {
+                                  MapArchive* archive, Visualizer* visualizer,
+                                  TrackState* state) {
     bool recovered_ok = false;
     if (!state->prev_image.empty()) {
         recovered_ok = recover_two_view_from_reference(
@@ -358,7 +402,7 @@ void process_frame_without_tracks(const AppConfig& config, int32_t frame_id,
         state->map_points.clear();
     }
     run_loop_query(image, frame_id, state->last_pose, config, bow_db,
-                   visualizer, state);
+                   *archive, visualizer, state);
     ++state->frames_processed;
     log_frame_state(visualizer, frame_id, image, *state);
     print_frame_stats(frame_id, *state);
@@ -372,6 +416,7 @@ int32_t run_app(AppConfig config) {
     FrameSource source;
     Visualizer visualizer;
     BowDatabase bow_db;
+    MapArchive archive;
     TrackState state;
     set_identity_pose(&state.prev_pose);
     set_identity_pose(&state.last_pose);
@@ -392,7 +437,7 @@ int32_t run_app(AppConfig config) {
 
     if (source_ok && visualizer_ok) {
         if (initialize_tracking(config, &source, &visualizer, &bow_db,
-                                &state)) {
+                                &archive, &state)) {
             const int32_t frame_limit = std::min(
                 config.max_frames, source.total_frames);
             for (int32_t frame_id = 2; frame_id < frame_limit; ++frame_id) {
@@ -405,12 +450,30 @@ int32_t run_app(AppConfig config) {
                 align_tracks_with_map_points(&state);
                 if (!state.prev_points.empty()) {
                     process_frame_with_tracks(config, frame_id, image,
-                                              &bow_db, &visualizer, &state);
+                                              &bow_db, &archive,
+                                              &visualizer, &state);
                 } else {
                     process_frame_without_tracks(config, frame_id, image,
-                                                 &bow_db, &visualizer,
-                                                 &state);
+                                                 &bow_db, &archive,
+                                                 &visualizer, &state);
                 }
+            }
+            // Flush closures whose episode was still open at sequence end.
+            run_backend_correction(config, state.frames_processed, true,
+                                   &bow_db, archive, &visualizer);
+            // Dump trajectories for offline evaluation against GT.
+            std::ofstream raw_out("build/trajectory_raw.txt");
+            for (const LoopKeyframe& keyframe : bow_db.keyframes) {
+                const cv::Point3f c = camera_center_from_pose(keyframe.pose);
+                raw_out << keyframe.frame_id << " " << c.x << " " << c.y
+                        << " " << c.z << "\n";
+            }
+            std::ofstream corrected_out("build/trajectory_corrected.txt");
+            for (std::size_t i = 0;
+                 i < bow_db.last_corrected_centers.size(); ++i) {
+                const cv::Point3f& c = bow_db.last_corrected_centers[i];
+                corrected_out << bow_db.keyframes[i].frame_id << " " << c.x
+                              << " " << c.y << " " << c.z << "\n";
             }
             exit_code = 0;
         }
@@ -426,6 +489,7 @@ int32_t run_app(AppConfig config) {
               << " pnp_success=" << state.pnp_success
               << " loop_queries=" << state.loop_queries
               << " loop_closures=" << bow_db.closures.size()
+              << " pgo_runs=" << bow_db.pgo_runs
               << " map_points=" << count_positioned_map_points(
                      state.map_points)
               << " pending=" << count_pending_map_points(state.map_points)

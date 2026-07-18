@@ -177,6 +177,27 @@ double parallax_deg_for_point(const cv::Point3f& point,
     return angle_deg;
 }
 
+double rotation_orthonormality_error(const Pose& pose) {
+    double max_error = 0.0;
+    for (int32_t row = 0; row < 3; ++row) {
+        for (int32_t col = 0; col < 3; ++col) {
+            double value = 0.0;
+            for (int32_t k = 0; k < 3; ++k) {
+                value += pose.r[k * 3 + row] * pose.r[k * 3 + col];
+            }
+            const double target = row == col ? 1.0 : 0.0;
+            max_error = std::max(max_error, std::abs(value - target));
+        }
+    }
+    return max_error;
+}
+
+double rotation_determinant(const Pose& pose) {
+    return pose.r[0] * (pose.r[4] * pose.r[8] - pose.r[5] * pose.r[7]) -
+           pose.r[1] * (pose.r[3] * pose.r[8] - pose.r[5] * pose.r[6]) +
+           pose.r[2] * (pose.r[3] * pose.r[7] - pose.r[4] * pose.r[6]);
+}
+
 double reprojection_residual(const cv::Point3f& point,
                              const cv::Point2f& observation,
                              const Pose& pose,
