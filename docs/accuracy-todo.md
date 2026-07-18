@@ -5,14 +5,38 @@ Measured state on KITTI 00, scale-aligned ATE against `image/GTpose.txt`:
 | run (4541 frames) | closures | PGO applied | ATE RMSE | ATE max |
 | --- | --- | --- | --- | --- |
 | no pose graph (`pgo_enabled=0`) | 1 | — | 150.0 m | 338.9 m |
-| **measured Sim(3) loop edges** | 11 | 10 | **87.3 m** | **173.6 m** |
+| **measured Sim(3) edges, batched (shipped)** | 22 | 11 | **63.2 m** | **167.6 m** |
 | scale-free loop edges, `pgo_scale_weight=1` | 16 | 2 | 143.3 m | 340.6 m |
 | scale-free loop edges, `pgo_scale_weight=50` | 16 | 14 | 154.2 m | 282.6 m |
 
-Measuring the loop Sim(3) from 3D-3D correspondences cut ATE by 42% and the
-worst-case error by 49%. The two scale-free rows are what the pose graph did
-before that measurement existed, kept here because they document the failure
-mode below.
+Measuring the loop Sim(3) from 3D-3D correspondences and batching the
+corrections cut ATE by 58% and the worst-case error by 51%. The two scale-free
+rows are what the pose graph did before that measurement existed, kept here
+because they document the failure mode below.
+
+### Candidate density and batch size
+
+How many closures reach the graph and how often the result is pushed into
+tracking are separate knobs, and only the pair matters. Sweep at 4541 frames:
+
+| `duplicate_frame_gap` | `pgo_pending_trigger` | closures | PGO applied | ATE RMSE | ATE max |
+| --- | --- | --- | --- | --- | --- |
+| 200 | 1 | 11 | 10 | 87.3 m | 173.6 m |
+| 50 | 1 | 17 | 16 | 88.3 m | 301.5 m |
+| 0 | 1 | 21 | 20 | 115.8 m | 303.6 m |
+| **50** | **3** | 22 | 11 | **63.2 m** | **167.6 m** |
+| 0 | 3 | 12 | 3 | 160.8 m | 406.0 m |
+| 50 | 6 | 23 | 6 | 103.3 m | 245.5 m |
+
+Closures accumulate in the database, so every optimization already includes all
+earlier loop edges; the edge count alone is not what changes between these
+runs. What changes is how often a correction is pushed into the live state.
+Correcting on every closure lets each thin measurement (12-21 similarity
+inliers) shove the frontend around — the worst-case error nearly doubles at the
+same RMSE. Batching too hard delays the correction until more drift has
+accumulated. Three pending closures per optimization is the observed optimum;
+removing candidate suppression entirely is worse than the baseline because most
+closures never get applied.
 
 ## 1. The scale-free loop edge let the optimizer cheat the gauge (fixed)
 
@@ -123,9 +147,10 @@ a separate `pgo_enabled=0` run.
 
 - Loop closures at the same place are suppressed by time and distance
   (`duplicate_frame_gap`, `duplicate_distance`, `duplicate_match_window`), so a
-  revisit contributes one constraint instead of dozens.
-- The pose graph runs as soon as `pgo_pending_trigger` closures are pending
-  instead of waiting out the episode gap.
+  revisit contributes a few constraints instead of dozens.
+- The pose graph runs once `pgo_pending_trigger` closures are pending instead of
+  waiting out the episode gap, which batches a revisit's measurements into one
+  correction.
 - A correction whose scale leaves `[1/pgo_max_scale_change,
   pgo_max_scale_change]` is rejected outright, so a degenerate solution cannot
   be handed to tracking. The bound is 3.0: with measured loop edges a large

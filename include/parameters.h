@@ -85,9 +85,9 @@ struct LoopClosureParameters {
     int32_t metric_required = 1;
     double metric_min_parallax_deg = 0.3;
     double metric_max_reprojection_error = 3.0;
-    int32_t duplicate_frame_gap = 200;
-    int32_t duplicate_match_window = 60;
-    double duplicate_distance = 5.0;
+    int32_t duplicate_frame_gap = 50;
+    int32_t duplicate_match_window = 20;
+    double duplicate_distance = 2.0;
     double min_score = 0.05;
     double match_ratio = 0.75;
     double inlier_threshold = 2.0;
@@ -96,7 +96,7 @@ struct LoopClosureParameters {
     int32_t pgo_max_graph_poses = 150;
     int32_t pgo_max_iterations = 50;
     int32_t pgo_episode_end_gap = 30;
-    int32_t pgo_pending_trigger = 2;
+    int32_t pgo_pending_trigger = 3;
     int32_t pgo_loss_type = 0;
     double pgo_loss_scale = 1.0;
     double pgo_loop_translation_weight = 1.0;
