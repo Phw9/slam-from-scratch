@@ -27,10 +27,22 @@ struct BAData {
     const Vector* dist_coeff;      // may be null
 };
 
+// Linear-solver selection for the LM normal equations.
+// kBASolverDense forms the full (6M + 3N)^2 system and factors it densely;
+// kBASolverSchur eliminates the point blocks first (Schur complement) and
+// factors only the 6M x 6M reduced camera system, so memory and solve cost
+// scale with the camera count instead of the point count. Both solvers use
+// the same damping schedule and termination criteria and converge to the
+// same solution up to floating-point rounding.
+
+static constexpr int32_t kBASolverDense = 0;
+static constexpr int32_t kBASolverSchur = 1;
+
 // Solver options for bundle_adjustment.
 
 struct BAOptions {
     int32_t              perturb_mode;
+    int32_t              solver;        // kBASolverDense | kBASolverSchur
     optimize::LMOptions  lm;
 };
 
