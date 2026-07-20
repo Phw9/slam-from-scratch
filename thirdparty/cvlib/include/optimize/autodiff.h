@@ -31,8 +31,8 @@ template <int32_t N_RES, int32_t N_LOCAL, typename Functor>
 bool autodiff_evaluate(const Functor& functor, const float64_t* x,
                        float64_t* residuals, float64_t* jacobian_row_major) {
     using JetT = Jet<N_LOCAL>;
-    JetT jet_x[N_LOCAL];
-    JetT jet_r[N_RES];
+    JetT jet_x[static_cast<std::size_t>(N_LOCAL)];
+    JetT jet_r[static_cast<std::size_t>(N_RES)];
     for (int32_t i = 0; i < N_LOCAL; ++i) {
         jet_x[i] = JetT(x[i], i);
     }
@@ -46,7 +46,8 @@ bool autodiff_evaluate(const Functor& functor, const float64_t* x,
         if (jacobian_row_major != nullptr) {
             for (int32_t i = 0; i < N_RES; ++i) {
                 for (int32_t j = 0; j < N_LOCAL; ++j) {
-                    jacobian_row_major[i * N_LOCAL + j] = jet_r[i].v[j];
+                    jacobian_row_major[i * N_LOCAL + j] =
+                        jet_r[i].v[static_cast<std::size_t>(j)];
                 }
             }
         }

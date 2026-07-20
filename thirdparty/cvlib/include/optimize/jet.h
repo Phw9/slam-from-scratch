@@ -13,52 +13,53 @@
 namespace cvlib {
 namespace optimize {
 
+// Tangent storage with the signed size converted exactly once, so strict
+// sign-conversion builds stay clean at every use site.
+template <int32_t N>
+using TangentVec = std::array<float64_t, static_cast<std::size_t>(N)>;
+
 // Jet<N>: scalar value plus N partial derivatives propagated by overloads.
 
 template <int32_t N>
 struct Jet {
-    float64_t           a;
-    std::array<float64_t, N> v;
+    float64_t     a;
+    TangentVec<N> v;
 
     Jet() : a(0.0) { v.fill(0.0); }
     explicit Jet(float64_t scalar) : a(scalar) { v.fill(0.0); }
     Jet(float64_t scalar, int32_t k) : a(scalar) {
         v.fill(0.0);
-        v[k] = 1.0;
+        v[static_cast<std::size_t>(k)] = 1.0;
     }
-    Jet(float64_t scalar, const std::array<float64_t, N>& dv)
-        : a(scalar), v(dv) {}
+    Jet(float64_t scalar, const TangentVec<N>& dv) : a(scalar), v(dv) {}
 };
 
 // Helpers for elementwise tangent arithmetic.
 template <int32_t N>
-inline std::array<float64_t, N> add_v(const std::array<float64_t, N>& x,
-                                       const std::array<float64_t, N>& y) {
-    std::array<float64_t, N> r{};
-    for (int32_t i = 0; i < N; ++i) { r[i] = x[i] + y[i]; }
+inline TangentVec<N> add_v(const TangentVec<N>& x, const TangentVec<N>& y) {
+    TangentVec<N> r{};
+    for (std::size_t i = 0; i < r.size(); ++i) { r[i] = x[i] + y[i]; }
     return r;
 }
 
 template <int32_t N>
-inline std::array<float64_t, N> sub_v(const std::array<float64_t, N>& x,
-                                       const std::array<float64_t, N>& y) {
-    std::array<float64_t, N> r{};
-    for (int32_t i = 0; i < N; ++i) { r[i] = x[i] - y[i]; }
+inline TangentVec<N> sub_v(const TangentVec<N>& x, const TangentVec<N>& y) {
+    TangentVec<N> r{};
+    for (std::size_t i = 0; i < r.size(); ++i) { r[i] = x[i] - y[i]; }
     return r;
 }
 
 template <int32_t N>
-inline std::array<float64_t, N> scale_v(float64_t s,
-                                         const std::array<float64_t, N>& x) {
-    std::array<float64_t, N> r{};
-    for (int32_t i = 0; i < N; ++i) { r[i] = s * x[i]; }
+inline TangentVec<N> scale_v(float64_t s, const TangentVec<N>& x) {
+    TangentVec<N> r{};
+    for (std::size_t i = 0; i < r.size(); ++i) { r[i] = s * x[i]; }
     return r;
 }
 
 template <int32_t N>
-inline std::array<float64_t, N> neg_v(const std::array<float64_t, N>& x) {
-    std::array<float64_t, N> r{};
-    for (int32_t i = 0; i < N; ++i) { r[i] = -x[i]; }
+inline TangentVec<N> neg_v(const TangentVec<N>& x) {
+    TangentVec<N> r{};
+    for (std::size_t i = 0; i < r.size(); ++i) { r[i] = -x[i]; }
     return r;
 }
 
