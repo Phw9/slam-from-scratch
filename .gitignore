@@ -11,5 +11,6 @@ thirdparty/DBoW2/lib/Debug/*
 thirdparty/DBoW2/lib/Release/*
 !thirdparty/DBoW2/lib/Release/DBoW2.lib
 image/image_0/
+image/image_1/
 image/*.tar.gz
 docs/*.mp4
