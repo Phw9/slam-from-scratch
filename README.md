@@ -7,6 +7,23 @@ DBoW2 loop closure, and Rerun 3D visualization on KITTI.
 
 Author: Hyunwoo Park <phphww93@gmail.com>
 
+## Results
+
+Monocular run on the KITTI 00 sequence with loop closure and bundle
+adjustment, captured live from the Rerun viewer.
+
+![MVO running on KITTI 00](docs/result.gif)
+
+Left: the map builds up incrementally — camera trajectory, current-frame map
+points, and accumulated historical map points. Right: the left camera image
+with the active KLT tracks that feed PnP. Loop closure runs a Sim(3) pose
+graph followed by a full BA and is logged as a separate optimized trajectory.
+
+![KITTI 00 trajectory and map point cloud](docs/result.png)
+
+The recovered trajectory closes the large KITTI 00 loops, and the map point
+cloud reproduces the street layout of the sequence.
+
 ## Quick Start
 
 ```powershell
@@ -67,6 +84,8 @@ MVO/
   bundle_cvlib.ps1, bundle_cvlib.sh
   docs/
     cvlib-update-analysis.md
+    result.gif
+    result.png
   configs/
     kitti_image_sequence.json
     parameters/

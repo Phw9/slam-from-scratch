@@ -12,3 +12,4 @@ thirdparty/DBoW2/lib/Release/*
 !thirdparty/DBoW2/lib/Release/DBoW2.lib
 image/image_0/
 image/*.tar.gz
+docs/*.mp4
