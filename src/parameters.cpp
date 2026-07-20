@@ -287,6 +287,66 @@ bool load_loop_closure_parameters(const std::filesystem::path& path,
     return ok;
 }
 
+bool load_stereo_parameters(const std::filesystem::path& path,
+                            StereoParameters* parameters) {
+    bool ok = false;
+    cv::FileStorage fs(path.string(), cv::FileStorage::READ |
+                                          cv::FileStorage::FORMAT_JSON);
+    if (fs.isOpened()) {
+        const cv::FileNode node = module_node(&fs, "stereo");
+        read_double_parameter(node, "max_epipolar_error",
+                              &parameters->max_epipolar_error);
+        read_double_parameter(node, "min_disparity",
+                              &parameters->min_disparity);
+        read_double_parameter(node, "max_disparity",
+                              &parameters->max_disparity);
+        read_double_parameter(node, "min_depth", &parameters->min_depth);
+        read_double_parameter(node, "max_depth", &parameters->max_depth);
+        read_int_parameter(node, "min_init_points",
+                           &parameters->min_init_points);
+        read_double_parameter(node, "max_rotation_error",
+                              &parameters->max_rotation_error);
+        read_int_parameter(node, "ba_jacobian_mode",
+                           &parameters->ba_jacobian_mode);
+        read_int_parameter(node, "local_ba_enabled",
+                           &parameters->local_ba_enabled);
+        read_int_parameter(node, "local_ba_interval",
+                           &parameters->local_ba_interval);
+        read_int_parameter(node, "local_ba_window",
+                           &parameters->local_ba_window);
+        read_int_parameter(node, "local_ba_max_points",
+                           &parameters->local_ba_max_points);
+        read_int_parameter(node, "local_ba_min_observations",
+                           &parameters->local_ba_min_observations);
+        read_int_parameter(node, "local_ba_min_camera_observations",
+                           &parameters->local_ba_min_camera_observations);
+        read_int_parameter(node, "local_ba_max_iterations",
+                           &parameters->local_ba_max_iterations);
+        read_int_parameter(node, "local_ba_stereo_rows",
+                           &parameters->local_ba_stereo_rows);
+        read_double_parameter(node, "local_ba_loss_scale",
+                              &parameters->local_ba_loss_scale);
+        read_int_parameter(node, "full_ba_enabled",
+                           &parameters->full_ba_enabled);
+        read_int_parameter(node, "full_ba_max_cameras",
+                           &parameters->full_ba_max_cameras);
+        read_int_parameter(node, "full_ba_max_points",
+                           &parameters->full_ba_max_points);
+        read_int_parameter(node, "full_ba_min_observations",
+                           &parameters->full_ba_min_observations);
+        read_int_parameter(node, "full_ba_min_camera_observations",
+                           &parameters->full_ba_min_camera_observations);
+        read_int_parameter(node, "full_ba_max_iterations",
+                           &parameters->full_ba_max_iterations);
+        read_int_parameter(node, "full_ba_stereo_rows",
+                           &parameters->full_ba_stereo_rows);
+        read_double_parameter(node, "full_ba_loss_scale",
+                              &parameters->full_ba_loss_scale);
+        ok = true;
+    }
+    return ok;
+}
+
 bool load_visualization_parameters(const std::filesystem::path& path,
                                    VisualizationParameters* parameters) {
     bool ok = false;
@@ -450,6 +510,50 @@ void sanitize_parameters(MvoParameters* parameters) {
         std::max(1, parameters->loop_closure.gba_max_iterations);
     parameters->loop_closure.gba_loss_scale =
         std::max(0.1, parameters->loop_closure.gba_loss_scale);
+    parameters->stereo.max_epipolar_error =
+        std::max(0.1, parameters->stereo.max_epipolar_error);
+    parameters->stereo.min_disparity =
+        std::max(1.0e-3, parameters->stereo.min_disparity);
+    parameters->stereo.max_disparity =
+        std::max(parameters->stereo.min_disparity,
+                 parameters->stereo.max_disparity);
+    parameters->stereo.min_depth =
+        std::max(1.0e-3, parameters->stereo.min_depth);
+    parameters->stereo.max_depth =
+        std::max(parameters->stereo.min_depth,
+                 parameters->stereo.max_depth);
+    parameters->stereo.min_init_points =
+        std::max(4, parameters->stereo.min_init_points);
+    parameters->stereo.max_rotation_error =
+        std::max(1.0e-12, parameters->stereo.max_rotation_error);
+    parameters->stereo.ba_jacobian_mode = std::min(
+        1, std::max(0, parameters->stereo.ba_jacobian_mode));
+    parameters->stereo.local_ba_interval =
+        std::max(1, parameters->stereo.local_ba_interval);
+    parameters->stereo.local_ba_window =
+        std::max(2, parameters->stereo.local_ba_window);
+    parameters->stereo.local_ba_max_points =
+        std::max(1, parameters->stereo.local_ba_max_points);
+    parameters->stereo.local_ba_min_observations =
+        std::max(2, parameters->stereo.local_ba_min_observations);
+    parameters->stereo.local_ba_min_camera_observations =
+        std::max(1, parameters->stereo.local_ba_min_camera_observations);
+    parameters->stereo.local_ba_max_iterations =
+        std::max(1, parameters->stereo.local_ba_max_iterations);
+    parameters->stereo.local_ba_loss_scale =
+        std::max(0.1, parameters->stereo.local_ba_loss_scale);
+    parameters->stereo.full_ba_max_cameras =
+        std::max(2, parameters->stereo.full_ba_max_cameras);
+    parameters->stereo.full_ba_max_points =
+        std::max(1, parameters->stereo.full_ba_max_points);
+    parameters->stereo.full_ba_min_observations =
+        std::max(2, parameters->stereo.full_ba_min_observations);
+    parameters->stereo.full_ba_min_camera_observations =
+        std::max(1, parameters->stereo.full_ba_min_camera_observations);
+    parameters->stereo.full_ba_max_iterations =
+        std::max(1, parameters->stereo.full_ba_max_iterations);
+    parameters->stereo.full_ba_loss_scale =
+        std::max(0.1, parameters->stereo.full_ba_loss_scale);
 }
 
 }  // namespace
@@ -472,6 +576,8 @@ bool load_parameter_configs(const std::string& directory,
                 &parameters->bundle_adjustment);
             load_loop_closure_parameters(root / "loop_closure.json",
                                          &parameters->loop_closure);
+            load_stereo_parameters(root / "stereo.json",
+                                   &parameters->stereo);
             load_visualization_parameters(root / "visualization.json",
                                           &parameters->visualization);
             sanitize_parameters(parameters);

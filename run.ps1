@@ -1,6 +1,8 @@
 param(
     [ValidateSet("Release", "Debug")]
     [string]$Config = "Release",
+    [ValidateSet("", "mono", "stereo")]
+    [string]$Mode = "",
     [Nullable[int]]$MaxFrames = $null,
     [switch]$NoBa,
     [string]$InputConfig = "",
@@ -85,6 +87,12 @@ if ($InputPath -eq "" -and $InputType -eq "") {
 }
 
 $RunArgs = @()
+if ($Mode -eq "stereo" -and $InputConfig -eq "") {
+    $RunArgs += @("--input-config", "configs\kitti_stereo_sequence.json")
+}
+if ($Mode -ne "") {
+    $RunArgs += @("--mode", $Mode)
+}
 if ($null -ne $MaxFrames) {
     $RunArgs += @("--max-frames", "$MaxFrames")
 }

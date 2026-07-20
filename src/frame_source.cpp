@@ -43,11 +43,23 @@ bool convert_to_grayscale(const cv::Mat& image, cv::Mat* gray) {
 bool open_frame_source(const AppConfig& config, FrameSource* source) {
     bool ok = false;
     source->input_type = config.input_type;
+    source->sensor_mode = config.sensor_mode;
     source->next_index = 0;
     source->total_frames = 0;
     source->opened = false;
 
-    if (config.input_type == InputType::kImageSequence) {
+    if (config.sensor_mode == SensorMode::kStereo) {
+        // Stereo consumes rectified left/right image pairs; video input has
+        // no second stream, so only image sequences are supported.
+        if (config.input_type == InputType::kImageSequence) {
+            source->images = list_images(config.input_path);
+            source->right_images = list_images(config.right_input_path);
+            source->total_frames = static_cast<int32_t>(
+                std::min(source->images.size(),
+                         source->right_images.size()));
+            ok = source->total_frames >= 2;
+        }
+    } else if (config.input_type == InputType::kImageSequence) {
         source->images = list_images(config.input_path);
         source->total_frames = static_cast<int32_t>(source->images.size());
         ok = source->total_frames >= 2;
@@ -86,6 +98,23 @@ bool read_next_frame(FrameSource* source, cv::Mat* gray) {
             ++source->next_index;
         }
         ok = convert_to_grayscale(image, gray);
+    }
+    return ok;
+}
+
+bool read_next_stereo_frame(FrameSource* source, cv::Mat* left,
+                            cv::Mat* right) {
+    bool ok = false;
+    if (source->opened && source->next_index < source->total_frames) {
+        const std::size_t index =
+            static_cast<std::size_t>(source->next_index);
+        const cv::Mat left_image = cv::imread(source->images[index],
+                                              cv::IMREAD_GRAYSCALE);
+        const cv::Mat right_image = cv::imread(source->right_images[index],
+                                               cv::IMREAD_GRAYSCALE);
+        ++source->next_index;
+        ok = convert_to_grayscale(left_image, left) &&
+             convert_to_grayscale(right_image, right);
     }
     return ok;
 }

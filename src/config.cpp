@@ -22,6 +22,18 @@ bool parse_input_type(const std::string& name, InputType* input_type) {
     return ok;
 }
 
+bool parse_sensor_mode(const std::string& name, SensorMode* sensor_mode) {
+    bool ok = false;
+    if (name == "mono" || name == "monocular") {
+        *sensor_mode = SensorMode::kMonocular;
+        ok = true;
+    } else if (name == "stereo") {
+        *sensor_mode = SensorMode::kStereo;
+        ok = true;
+    }
+    return ok;
+}
+
 void read_string_node(const cv::FileNode& node, const std::string& key,
                       std::string* value) {
     const cv::FileNode child = node[key];
@@ -46,6 +58,14 @@ void read_bool_node(const cv::FileNode& node, const std::string& key,
     }
 }
 
+void read_double_node(const cv::FileNode& node, const std::string& key,
+                      double* value) {
+    const cv::FileNode child = node[key];
+    if (!child.empty()) {
+        *value = static_cast<double>(child);
+    }
+}
+
 bool load_json_config(const std::string& path, AppConfig* config) {
     bool ok = false;
     cv::FileStorage fs(path, cv::FileStorage::READ |
@@ -61,7 +81,19 @@ bool load_json_config(const std::string& path, AppConfig* config) {
                 config->input_type = parsed_type;
             }
         }
+        std::string sensor_mode;
+        read_string_node(root, "mode", &sensor_mode);
+        read_string_node(root, "sensor", &sensor_mode);
+        if (!sensor_mode.empty()) {
+            SensorMode parsed_mode = config->sensor_mode;
+            if (parse_sensor_mode(sensor_mode, &parsed_mode)) {
+                config->sensor_mode = parsed_mode;
+            }
+        }
         read_string_node(root, "path", &config->input_path);
+        read_string_node(root, "right_path", &config->right_input_path);
+        read_string_node(root, "right_images", &config->right_input_path);
+        read_double_node(root, "baseline", &config->stereo_baseline);
         read_string_node(root, "parameter_dir", &config->parameter_dir);
         read_string_node(root, "parameters_dir", &config->parameter_dir);
         read_string_node(root, "calib", &config->calib_path);
@@ -110,6 +142,14 @@ std::string input_type_name(InputType input_type) {
     return name;
 }
 
+std::string sensor_mode_name(SensorMode sensor_mode) {
+    std::string name = "mono";
+    if (sensor_mode == SensorMode::kStereo) {
+        name = "stereo";
+    }
+    return name;
+}
+
 AppConfig parse_args(int argc, char** argv) {
     AppConfig config;
     for (int32_t i = 1; i < argc; ++i) {
@@ -144,6 +184,18 @@ AppConfig parse_args(int argc, char** argv) {
             }
         } else if (arg == "--input-config" && i + 1 < argc) {
             ++i;
+        } else if (arg == "--mode" && i + 1 < argc) {
+            ++i;
+            SensorMode parsed_mode = config.sensor_mode;
+            if (parse_sensor_mode(argv[i], &parsed_mode)) {
+                config.sensor_mode = parsed_mode;
+            }
+        } else if (arg == "--right-path" && i + 1 < argc) {
+            ++i;
+            config.right_input_path = argv[i];
+        } else if (arg == "--baseline" && i + 1 < argc) {
+            ++i;
+            config.stereo_baseline = std::stod(argv[i]);
         } else if (arg == "--parameter-dir" && i + 1 < argc) {
             ++i;
             config.parameter_dir = argv[i];
@@ -196,6 +248,34 @@ bool load_kitti_calibration(const std::string& path,
                 camera->fy = p[5];
                 camera->cx = p[2];
                 camera->cy = p[6];
+                ok = true;
+            }
+        }
+    }
+    return ok;
+}
+
+// KITTI stores the right camera as P1 with P1(0,3) = -fx * baseline, so the
+// metric baseline comes straight out of the projection row.
+bool load_kitti_stereo_baseline(const std::string& path,
+                                double* baseline) {
+    bool ok = false;
+    std::ifstream file(path);
+    std::string line;
+    while (!ok && std::getline(file, line)) {
+        std::istringstream iss(line);
+        std::string label;
+        double p[12] = {};
+        iss >> label;
+        if (label == "P1:" || label == "P1") {
+            bool parsed = true;
+            for (double& value : p) {
+                if (!(iss >> value)) {
+                    parsed = false;
+                }
+            }
+            if (parsed && p[0] > 0.0 && p[3] < 0.0) {
+                *baseline = -p[3] / p[0];
                 ok = true;
             }
         }

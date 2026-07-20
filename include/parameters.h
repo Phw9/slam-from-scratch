@@ -113,6 +113,34 @@ struct LoopClosureParameters {
     double gba_loss_scale = 3.0;
 };
 
+struct StereoParameters {
+    double max_epipolar_error = 1.5;
+    double min_disparity = 1.0;
+    double max_disparity = 150.0;
+    double min_depth = 1.0;
+    double max_depth = 90.0;
+    int32_t min_init_points = 40;
+    double max_rotation_error = 1.0e-3;
+    int32_t ba_jacobian_mode = 0;
+    int32_t local_ba_enabled = 1;
+    int32_t local_ba_interval = 10;
+    int32_t local_ba_window = 10;
+    int32_t local_ba_max_points = 350;
+    int32_t local_ba_min_observations = 4;
+    int32_t local_ba_min_camera_observations = 6;
+    int32_t local_ba_max_iterations = 15;
+    int32_t local_ba_stereo_rows = 0;
+    double local_ba_loss_scale = 3.0;
+    int32_t full_ba_enabled = 1;
+    int32_t full_ba_max_cameras = 200;
+    int32_t full_ba_max_points = 5000;
+    int32_t full_ba_min_observations = 3;
+    int32_t full_ba_min_camera_observations = 6;
+    int32_t full_ba_max_iterations = 40;
+    int32_t full_ba_stereo_rows = 1;
+    double full_ba_loss_scale = 3.0;
+};
+
 struct VisualizationParameters {
     float previous_map_point_radius = 0.08F;
     float current_map_point_radius = 0.18F;
@@ -129,6 +157,7 @@ struct MvoParameters {
     MappingParameters mapping;
     BundleAdjustmentParameters bundle_adjustment;
     LoopClosureParameters loop_closure;
+    StereoParameters stereo;
     VisualizationParameters visualization;
 };
 

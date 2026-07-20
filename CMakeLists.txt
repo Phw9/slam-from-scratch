@@ -180,6 +180,7 @@ add_executable(mvo_cvlib
     src/parameters.cpp
     src/pose_estimation.cpp
     src/pose_graph.cpp
+    src/stereo.cpp
     src/visualization.cpp
     src/cvlib_main.cpp
 )

@@ -8,6 +8,7 @@
 #include "map_data.h"
 #include "pose_estimation.h"
 #include "pose_graph.h"
+#include "stereo.h"
 #include "visualization.h"
 
 #include <algorithm>
@@ -16,6 +17,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace mvo {
@@ -392,6 +394,245 @@ void process_frame_with_tracks(const AppConfig& config, int32_t frame_id,
     std::cout << std::endl;
 }
 
+bool initialize_stereo(const AppConfig& config, FrameSource* source,
+                       Visualizer* visualizer, MapArchive* archive,
+                       StereoBackend* backend, TrackState* state) {
+    cv::Mat left;
+    cv::Mat right;
+    bool ok = read_next_stereo_frame(source, &left, &right);
+    if (ok) {
+        Pose pose0;
+        set_identity_pose(&pose0);
+        ok = initialize_stereo_tracking(left, right, pose0, config.camera,
+                                        config.stereo_baseline,
+                                        config.parameters, 0,
+                                        config.debug_geometry, archive,
+                                        state);
+    }
+    if (ok) {
+        state->frames_processed = 1;
+        backend->trajectory.push_back({0, state->last_pose});
+        log_visualization(visualizer, 0, left, state->prev_points,
+                          map_point_positions(state->map_points),
+                          state->all_map_points, state->last_pose);
+    }
+    return ok;
+}
+
+void process_stereo_frame(const AppConfig& config, int32_t frame_id,
+                          const cv::Mat& left, const cv::Mat& right,
+                          MapArchive* archive, Visualizer* visualizer,
+                          StereoBackend* backend, TrackState* state) {
+    bool pnp_ok = false;
+    bool recovered_ok = false;
+    std::vector<cv::Point2f> tracked_next;
+    std::vector<MapPoint> next_map_points;
+    if (!state->prev_points.empty()) {
+        std::vector<cv::Point2f> tracked_prev;
+        std::vector<cv::Point2f> raw_tracked_next;
+        std::vector<int32_t> tracked_indices;
+        track_points(state->prev_image, left, state->prev_points,
+                     config.parameters.feature, &tracked_prev,
+                     &raw_tracked_next, &tracked_indices,
+                     config.debug_geometry,
+                     "frame_" + std::to_string(frame_id), true);
+        const std::size_t tracked_count = std::min(raw_tracked_next.size(),
+                                                   tracked_indices.size());
+        tracked_next.reserve(tracked_count);
+        next_map_points.reserve(tracked_count);
+        for (std::size_t i = 0; i < tracked_count; ++i) {
+            tracked_next.push_back(raw_tracked_next[i]);
+            next_map_points.push_back(
+                state->map_points[static_cast<std::size_t>(
+                    tracked_indices[i])]);
+        }
+
+        std::vector<cv::Point3f> pnp_map_points;
+        std::vector<cv::Point2f> pnp_image_points;
+        collect_pnp_candidates(next_map_points, tracked_next, frame_id,
+                               config.parameters, config.debug_geometry,
+                               &pnp_map_points, &pnp_image_points);
+        if (static_cast<int32_t>(pnp_image_points.size()) >=
+            config.parameters.pnp.min_tracks) {
+            const Pose initial_pose = state->last_pose;
+            if (run_pnp(&pnp_map_points, &pnp_image_points, config.camera,
+                        initial_pose, config.parameters.pnp,
+                        config.debug_geometry, &state->last_pose)) {
+                ++state->pnp_success;
+                pnp_ok = true;
+            }
+        } else {
+            std::cout << "pnp_skipped tracks=" << pnp_image_points.size()
+                      << " tracked=" << tracked_next.size() << std::endl;
+        }
+    }
+
+    if (pnp_ok) {
+        retain_pnp_inlier_tracks(config, frame_id, state->last_pose,
+                                 &tracked_next, &next_map_points, archive);
+        add_pending_feature_tracks(left, state->last_pose, frame_id,
+                                   config.parameters, config.debug_geometry,
+                                   &tracked_next, &next_map_points);
+        // Fresh and previously unmatched tracks both get metric depth from
+        // the current pair, so new map points are usable immediately.
+        triangulate_stereo_map_points(
+            left, right, tracked_next, state->last_pose, config.camera,
+            config.stereo_baseline, config.parameters, frame_id,
+            config.debug_geometry, &next_map_points, &state->all_map_points,
+            archive);
+        state->prev_image = left;
+        state->prev_pose = state->last_pose;
+        state->prev_points = tracked_next;
+        state->map_points = next_map_points;
+    } else {
+        if (config.debug_geometry) {
+            std::cout << "stereo_recover_pose frame=" << frame_id
+                      << " ortho_err="
+                      << rotation_orthonormality_error(state->last_pose)
+                      << " det=" << rotation_determinant(state->last_pose)
+                      << std::endl;
+        }
+        recovered_ok = initialize_stereo_tracking(
+            left, right, state->last_pose, config.camera,
+            config.stereo_baseline, config.parameters, frame_id,
+            config.debug_geometry, archive, state);
+        if (recovered_ok) {
+            std::cout << "stereo_reinitialized frame=" << frame_id
+                      << " tracks=" << state->prev_points.size()
+                      << " map_points="
+                      << count_positioned_map_points(state->map_points)
+                      << std::endl;
+        } else {
+            std::cout << "frame_pose_failed frame=" << frame_id
+                      << " tracked=" << tracked_next.size()
+                      << " state_held=1" << std::endl;
+        }
+    }
+    backend->trajectory.push_back({frame_id, state->last_pose});
+    if (config.run_ba &&
+        config.parameters.stereo.local_ba_enabled != 0 &&
+        frame_id % config.parameters.stereo.local_ba_interval == 0) {
+        run_stereo_local_ba(config.camera, config.stereo_baseline,
+                            config.parameters.stereo, frame_id,
+                            config.debug_geometry, archive, backend, state);
+    }
+    ++state->frames_processed;
+    if (pnp_ok || recovered_ok) {
+        log_frame_state(visualizer, frame_id, left, *state);
+    } else {
+        const std::vector<cv::Point2f> empty_points;
+        const std::vector<cv::Point3f> empty_map_points;
+        log_visualization(visualizer, frame_id, left, empty_points,
+                          empty_map_points, state->all_map_points,
+                          state->last_pose);
+    }
+    print_frame_stats(frame_id, *state);
+    std::cout << std::endl;
+}
+
+int32_t run_stereo_app(AppConfig config) {
+    int32_t exit_code = 1;
+    FrameSource source;
+    Visualizer visualizer;
+    MapArchive archive;
+    StereoBackend backend;
+    TrackState state;
+    set_identity_pose(&state.prev_pose);
+    set_identity_pose(&state.last_pose);
+
+    const bool calib_loaded = load_kitti_calibration(
+        config.calib_path, &config.camera);
+    if (config.stereo_baseline <= 0.0) {
+        load_kitti_stereo_baseline(config.calib_path,
+                                   &config.stereo_baseline);
+    }
+    const bool baseline_ok = config.stereo_baseline > 0.0;
+    const bool source_ok = open_frame_source(config, &source);
+    const bool visualizer_ok = initialize_visualizer(config, &visualizer);
+    log_startup(config, source, calib_loaded);
+    std::cout << "stereo right_path=" << config.right_input_path
+              << " baseline=" << config.stereo_baseline
+              << " loop_closure=disabled" << std::endl;
+    if (!baseline_ok) {
+        std::cout << "stereo_baseline=missing calib=" << config.calib_path
+                  << " hint=provide_P1_or_--baseline" << std::endl;
+    }
+
+    if (source_ok && visualizer_ok && baseline_ok) {
+        if (initialize_stereo(config, &source, &visualizer, &archive,
+                              &backend, &state)) {
+            const int32_t frame_limit = std::min(
+                config.max_frames, source.total_frames);
+            for (int32_t frame_id = 1; frame_id < frame_limit; ++frame_id) {
+                cv::Mat left;
+                cv::Mat right;
+                if (!read_next_stereo_frame(&source, &left, &right)) {
+                    std::cout << "frame_read_failed frame=" << frame_id
+                              << std::endl;
+                    break;
+                }
+                align_tracks_with_map_points(&state);
+                process_stereo_frame(config, frame_id, left, right,
+                                     &archive, &visualizer, &backend,
+                                     &state);
+            }
+            if (config.run_ba &&
+                config.parameters.stereo.full_ba_enabled != 0) {
+                if (run_stereo_full_ba(config.camera,
+                                       config.stereo_baseline,
+                                       config.parameters.stereo,
+                                       config.debug_geometry, archive,
+                                       &backend)) {
+                    std::vector<cv::Point3f> centers;
+                    centers.reserve(backend.optimized.size());
+                    for (const StereoFramePose& entry : backend.optimized) {
+                        centers.push_back(
+                            camera_center_from_pose(entry.pose));
+                    }
+                    log_optimized_trajectory(&visualizer,
+                                             state.frames_processed,
+                                             centers);
+                }
+            } else {
+                backend.optimized = backend.trajectory;
+            }
+            // Dump trajectories for offline evaluation against GT.
+            std::ofstream raw_out("build/trajectory_raw.txt");
+            for (const StereoFramePose& entry : backend.trajectory) {
+                const cv::Point3f c = camera_center_from_pose(entry.pose);
+                raw_out << entry.frame_id << " " << c.x << " " << c.y
+                        << " " << c.z << "\n";
+            }
+            std::ofstream corrected_out("build/trajectory_corrected.txt");
+            for (const StereoFramePose& entry : backend.optimized) {
+                const cv::Point3f c = camera_center_from_pose(entry.pose);
+                corrected_out << entry.frame_id << " " << c.x << " " << c.y
+                              << " " << c.z << "\n";
+            }
+            exit_code = 0;
+        }
+    } else if (!source_ok) {
+        std::cout << "input=open_failed type="
+                  << input_type_name(config.input_type)
+                  << " mode=" << sensor_mode_name(config.sensor_mode)
+                  << " path=" << config.input_path
+                  << " right_path=" << config.right_input_path << std::endl;
+    }
+
+    flush_visualizer(&visualizer);
+    std::cout << "summary mode=stereo frames=" << state.frames_processed
+              << " keyframes=" << state.keyframes
+              << " pnp_success=" << state.pnp_success
+              << " local_ba_runs=" << backend.local_ba_runs
+              << " local_ba_accepted=" << backend.local_ba_accepted
+              << " full_ba_accepted=" << backend.full_ba_accepted
+              << " map_points=" << count_positioned_map_points(
+                     state.map_points)
+              << " pending=" << count_pending_map_points(state.map_points)
+              << " exit_code=" << exit_code << std::endl;
+    return exit_code;
+}
+
 void process_frame_without_tracks(const AppConfig& config, int32_t frame_id,
                                   const cv::Mat& image, BowDatabase* bow_db,
                                   MapArchive* archive, Visualizer* visualizer,
@@ -420,6 +661,9 @@ void process_frame_without_tracks(const AppConfig& config, int32_t frame_id,
 }  // namespace
 
 int32_t run_app(AppConfig config) {
+    if (config.sensor_mode == SensorMode::kStereo) {
+        return run_stereo_app(std::move(config));
+    }
     int32_t exit_code = 1;
     FrameSource source;
     Visualizer visualizer;

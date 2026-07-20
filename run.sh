@@ -2,17 +2,20 @@
 set -euo pipefail
 
 config="Release"
+mode="mono"
+mode_seen=0
 max_frames="3000"
 no_ba=()
 input_args=()
 custom_input=0
+custom_input_config=0
 rerun_enabled=1
 rerun_mode="spawn"
 rerun_save=""
 debug_geometry=()
 
 usage() {
-    echo "Usage: ./run.sh [--config Release|Debug] [--max-frames N] [--no-ba] [--input-config PATH] [--parameter-dir DIR] [--debug-geometry] [--rerun|--rerun-save PATH|--no-rerun]"
+    echo "Usage: ./run.sh [--config Release|Debug] [--mode mono|stereo] [--max-frames N] [--no-ba] [--input-config PATH] [--parameter-dir DIR] [--debug-geometry] [--rerun|--rerun-save PATH|--no-rerun]"
 }
 
 to_unix_path() {
@@ -60,6 +63,11 @@ while [[ $# -gt 0 ]]; do
             config="$2"
             shift 2
             ;;
+        --mode)
+            mode="$2"
+            mode_seen=1
+            shift 2
+            ;;
         --max-frames)
             max_frames="$2"
             shift 2
@@ -73,7 +81,12 @@ while [[ $# -gt 0 ]]; do
             input_args+=("$1" "$2")
             shift 2
             ;;
-        --input-config|--parameter-dir)
+        --input-config)
+            custom_input_config=1
+            input_args+=("$1" "$2")
+            shift 2
+            ;;
+        --parameter-dir)
             input_args+=("$1" "$2")
             shift 2
             ;;
@@ -117,6 +130,11 @@ done
 
 if [[ "$config" != "Release" && "$config" != "Debug" ]]; then
     echo "Config must be Release or Debug." >&2
+    exit 2
+fi
+
+if [[ "$mode" != "mono" && "$mode" != "stereo" ]]; then
+    echo "Mode must be mono or stereo." >&2
     exit 2
 fi
 
@@ -171,6 +189,12 @@ if [[ "$custom_input" -eq 0 ]]; then
 fi
 
 run_args=()
+if [[ "$mode" == "stereo" && "$custom_input_config" -eq 0 ]]; then
+    run_args+=(--input-config "configs/kitti_stereo_sequence.json")
+fi
+if [[ "$mode_seen" -eq 1 ]]; then
+    run_args+=(--mode "$mode")
+fi
 if [[ -n "$max_frames" ]]; then
     run_args+=(--max-frames "$max_frames")
 fi

@@ -14,6 +14,11 @@ enum class InputType {
     kVideo,
 };
 
+enum class SensorMode {
+    kMonocular,
+    kStereo,
+};
+
 struct CameraIntrinsics {
     double fx = 7.188560000000e+02;
     double fy = 7.188560000000e+02;
@@ -50,8 +55,19 @@ struct MapObservation {
     cv::Point2f pixel;
 };
 
+// Right-image match recorded when a map point is stereo-triangulated. The
+// known baseline turns this into a metric depth constraint for bundle
+// adjustment, which mono-only reprojection rows cannot provide.
+struct StereoObservation {
+    int32_t frame_id = 0;
+    int32_t point_id = 0;
+    cv::Point2f pixel;
+    float right_x = 0.0F;
+};
+
 struct MapArchive {
     std::vector<MapObservation> observations;
+    std::vector<StereoObservation> stereo_observations;
     std::unordered_map<int32_t, cv::Point3f> positions;
     std::unordered_map<int32_t, int32_t> last_seen;
 };

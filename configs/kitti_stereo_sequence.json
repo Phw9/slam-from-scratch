@@ -1,0 +1,19 @@
+{
+  "input": {
+    "type": "image_sequence",
+    "mode": "stereo",
+    "path": "image/image_0",
+    "right_path": "image/image_1",
+    "parameters": {
+      "directory": "configs/parameters"
+    },
+    "calib": "image/calib.txt",
+    "max_frames": 2000,
+    "run_ba": true,
+    "debug_geometry": false,
+    "rerun": {
+      "spawn": true,
+      "save": ""
+    }
+  }
+}

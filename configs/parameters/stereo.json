@@ -1,0 +1,29 @@
+{
+  "stereo": {
+    "max_epipolar_error": 1.5,
+    "min_disparity": 1.0,
+    "max_disparity": 150.0,
+    "min_depth": 1.0,
+    "max_depth": 90.0,
+    "min_init_points": 40,
+    "max_rotation_error": 1.0e-3,
+    "ba_jacobian_mode": 0,
+    "local_ba_enabled": 1,
+    "local_ba_interval": 10,
+    "local_ba_window": 10,
+    "local_ba_max_points": 350,
+    "local_ba_min_observations": 4,
+    "local_ba_min_camera_observations": 6,
+    "local_ba_max_iterations": 15,
+    "local_ba_stereo_rows": 0,
+    "local_ba_loss_scale": 3.0,
+    "full_ba_enabled": 1,
+    "full_ba_max_cameras": 200,
+    "full_ba_max_points": 5000,
+    "full_ba_min_observations": 3,
+    "full_ba_min_camera_observations": 6,
+    "full_ba_max_iterations": 40,
+    "full_ba_stereo_rows": 1,
+    "full_ba_loss_scale": 3.0
+  }
+}
