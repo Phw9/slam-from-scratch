@@ -6,7 +6,7 @@
 - Keep filenames lowercase.
 - Keep module boundaries aligned with the current files:
   `feature`, `init`, `pose_estimation`, `map_data`, `bundle_adjustment`,
-  `loop_closure`, `pose_graph`, `visualization`, `frame_source`,
+  `loop_closure`, `pose_graph`, `stereo`, `visualization`, `frame_source`,
   `parameters`, and `app`.
 - Keep `src/cvlib_main.cpp` as a thin executable entry point.
 - Do not add broad rewrites unless needed for the requested behavior.
@@ -29,7 +29,10 @@
   by the config schema and frame-source boundary.
 - Group tunable parameters by feature area:
   `feature.json`, `pnp.json`, `initializer.json`, `mapping.json`,
-  `bundle_adjustment.json`, `loop_closure.json`, and `visualization.json`.
+  `bundle_adjustment.json`, `loop_closure.json`, `stereo.json`, and
+  `visualization.json`.
+- Sensor mode (mono or stereo) comes from the input JSON `mode` field or
+  the `--mode` flag; run scripts expose `--mode` / `-Mode`.
 - Do not hide new thresholds in source files when they affect tracking,
   initialization, PnP, map point creation, BA, or visualization.
 
@@ -40,6 +43,20 @@
   well-conditioned points, and keep reprojection-error gates explicit.
 - Do not accept initialization from low-baseline rotation-only scenes.
 - Keep map point IDs tied to feature tracks so later PnP pairs remain correct.
+
+## Stereo Mode
+
+- Stereo consumes rectified left/right pairs; the metric baseline comes
+  from KITTI `P1` (or the `baseline` config/CLI override).
+- Initialize from a single stereo pair by left-right KLT matching gated on
+  rectified-epipolar error, disparity range, and depth range.
+- Stereo map points are metric from creation; no Sim(3) is involved
+  anywhere in the stereo backend.
+- Loop closure stays disabled in stereo mode; the backend is windowed
+  local BA plus a final full BA with the cvlib Schur solver, both gated by
+  `--no-ba`.
+- Re-anchor the BA gauge to the first window camera so the trajectory
+  stays continuous at the window boundary.
 
 ## Tracking And Mapping
 
@@ -68,4 +85,6 @@
 - Linux/Git Bash: `./build.sh` and `./run.sh --config Release`.
 - Short validation:
   `.\run.ps1 -Config Release -MaxFrames 3 -NoBa -NoRerun -ParameterDir .\configs\parameters`.
+- Short stereo validation:
+  `.\run.ps1 -Config Release -Mode stereo -MaxFrames 3 -NoBa -NoRerun -ParameterDir .\configs\parameters`.
 

@@ -24,5 +24,7 @@ headers and libraries under `thirdparty/cvlib`.
 
 - Windows build: `.\build.ps1`
 - Windows run check: `.\run.ps1 -Config Release -MaxFrames 3 -NoBa -NoRerun -ParameterDir .\configs\parameters`
+- Windows stereo run check: `.\run.ps1 -Config Release -Mode stereo -MaxFrames 3 -NoBa -NoRerun -ParameterDir .\configs\parameters`
 - Linux/Git Bash run check: `bash ./run.sh --config Release --max-frames 3 --no-ba --no-rerun --parameter-dir ./configs/parameters`
+- Linux/Git Bash stereo run check: `bash ./run.sh --config Release --mode stereo --max-frames 3 --no-ba --no-rerun --parameter-dir ./configs/parameters`
 

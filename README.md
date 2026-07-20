@@ -1,9 +1,12 @@
 # SLAM from Scratch
 
-Monocular visual odometry (MVO) built on hand-written solvers from my
-`cvlib` library: custom PnP, RANSAC, triangulation, and bundle adjustment
-(no g2o/Ceres), with KLT tracking, ORB-SLAM-style two-view initialization,
-DBoW2 loop closure, and Rerun 3D visualization on KITTI.
+Monocular and stereo visual odometry (MVO) built on hand-written solvers
+from my `cvlib` library: custom PnP, RANSAC, triangulation, and bundle
+adjustment (no g2o/Ceres), with KLT tracking, ORB-SLAM-style two-view
+initialization, DBoW2 loop closure, and Rerun 3D visualization on KITTI.
+Stereo mode triangulates metric map points directly from the rectified
+pair (no scale ambiguity, no Sim(3) backend) and refines with windowed
+local BA plus a final full BA.
 
 Author: Hyunwoo Park <phphww93@gmail.com>
 
@@ -29,13 +32,15 @@ cloud reproduces the street layout of the sequence.
 ```powershell
 .\build.ps1 # default: install all dependencies and build
 .\run.ps1 -Config Release -MaxFrames 3 -NoBa -NoRerun -ParameterDir .\configs\parameters # quick run check
-.\run.ps1 -Config Release # run with Rerun viewer
+.\run.ps1 -Config Release # run monocular with Rerun viewer
+.\run.ps1 -Config Release -Mode stereo # run stereo with Rerun viewer
 ```
 
 ```bash
 bash build.sh # default: install all dependencies and build
 bash run.sh --config Release --max-frames 3 --no-ba --no-rerun --parameter-dir ./configs/parameters # quick run check
-bash run.sh --config Release # run with Rerun viewer
+bash run.sh --config Release # run monocular with Rerun viewer
+bash run.sh --config Release --mode stereo # run stereo with Rerun viewer
 ```
 
 ## Quick Install
@@ -66,12 +71,14 @@ export PATH="$(cygpath -u "$APPDATA")/Python/Python314/Scripts:$PATH" # add reru
 
 ## Data
 
-KITTI 00 grayscale images (`image/image_0`, 4541 frames) are not tracked in
-git. `build.ps1`/`build.sh` and `run.ps1`/`run.sh` download and extract
-`kitti00_image0.tar.gz` from the GitHub release `kitti00-data` automatically
-when `image/image_0` is missing. Manual fetch: `.\fetch_data.ps1` or
-`bash ./fetch_data.sh`; override the source with `MVO_DATA_URL`.
-`image/calib.txt`, `image/GTpose.txt`, and the DBoW2 vocabulary stay in git.
+KITTI 00 grayscale images (`image/image_0` left and `image/image_1` right,
+4541 frames each) are not tracked in git. `build.ps1`/`build.sh` and
+`run.ps1`/`run.sh` download and extract `kitti00_image0.tar.gz` and
+`kitti00_image1.tar.gz` from the GitHub release `kitti00-data` automatically
+when the image directories are missing. Manual fetch: `.\fetch_data.ps1` or
+`bash ./fetch_data.sh`; override the sources with `MVO_DATA_URL` and
+`MVO_STEREO_DATA_URL`. `image/calib.txt` (P0 intrinsics, P1 stereo
+baseline), `image/GTpose.txt`, and the DBoW2 vocabulary stay in git.
 
 ## File Structure
 
@@ -88,6 +95,7 @@ MVO/
     result.png
   configs/
     kitti_image_sequence.json
+    kitti_stereo_sequence.json
     parameters/
       feature.json
       pnp.json
@@ -95,6 +103,7 @@ MVO/
       mapping.json
       bundle_adjustment.json
       loop_closure.json
+      stereo.json
       visualization.json
   include/
     app.h
@@ -110,6 +119,7 @@ MVO/
     parameters.h
     pose_estimation.h
     pose_graph.h
+    stereo.h
     types.h
     visualization.h
   src/
@@ -126,6 +136,7 @@ MVO/
     parameters.cpp
     pose_estimation.cpp
     pose_graph.cpp
+    stereo.cpp
     visualization.cpp
   thirdparty/
     cvlib/
