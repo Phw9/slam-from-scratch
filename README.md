@@ -1,9 +1,10 @@
 # SLAM from Scratch
 
-Monocular and stereo visual odometry (MVO) built on hand-written solvers
+Monocular and stereo visual SLAM built on hand-written solvers
 from my `cvlib` library: custom PnP, RANSAC, triangulation, and bundle
 adjustment (no g2o/Ceres), with KLT tracking, ORB-SLAM-style two-view
 initialization, DBoW2 loop closure, and Rerun 3D visualization on KITTI.
+
 Stereo mode triangulates metric map points directly from the rectified
 pair (no scale ambiguity, no Sim(3) backend) and refines with windowed
 local BA plus a final full BA.
@@ -12,20 +13,10 @@ Author: Hyunwoo Park <phphww93@gmail.com>
 
 ## Results
 
-Monocular run on the KITTI 00 sequence with loop closure and bundle
-adjustment, captured live from the Rerun viewer.
-
 ![MVO running on KITTI 00](docs/result.gif)
-
-Left: the map builds up incrementally — camera trajectory, current-frame map
-points, and accumulated historical map points. Right: the left camera image
-with the active KLT tracks that feed PnP. Loop closure runs a Sim(3) pose
-graph followed by a full BA and is logged as a separate optimized trajectory.
 
 ![KITTI 00 trajectory and map point cloud](docs/result.png)
 
-The recovered trajectory closes the large KITTI 00 loops, and the map point
-cloud reproduces the street layout of the sequence.
 
 ## Quick Start
 
