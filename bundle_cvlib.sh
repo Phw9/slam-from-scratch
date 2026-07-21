@@ -81,8 +81,20 @@ if [[ ! -d "$cvlib_include_source" ]]; then
     cvlib_include_source="$cvlib_source_dir/include"
 fi
 cp -R "$cvlib_include_source/." "$include_dest/"
+# Rewrite "cvlib/<path>" includes to includer-relative paths ("../<path>"
+# from one level down) so quoted-include resolution stays inside the
+# bundle even when a consumer include directory shadows names such as
+# types.h earlier in the include search order.
 while IFS= read -r -d '' header; do
-    perl -0pi -e 's/#include "cvlib\//#include "/g' "$header"
+    rel_dir="$(dirname "${header#"$include_dest/"}")"
+    prefix=""
+    if [[ "$rel_dir" != "." ]]; then
+        depth="$(awk -F'/' '{print NF}' <<<"$rel_dir")"
+        for ((i = 0; i < depth; ++i)); do
+            prefix="../$prefix"
+        done
+    fi
+    perl -0pi -e "s{#include \"cvlib/}{#include \"$prefix}g" "$header"
 done < <(find "$include_dest" -type f -name '*.h' -print0)
 
 case "$platform" in

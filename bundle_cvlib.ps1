@@ -72,9 +72,20 @@ if (!(Test-Path $CvlibIncludeSource)) {
 Copy-Item -Path (Join-Path $CvlibIncludeSource "*") `
     -Destination $IncludeDest -Recurse -Force
 $Utf8NoBom = New-Object System.Text.UTF8Encoding $false
+# Rewrite "cvlib/<path>" includes to includer-relative paths ("../<path>"
+# from one level down) so quoted-include resolution stays inside the
+# bundle even when a consumer include directory shadows names such as
+# types.h earlier in the include search order.
+$IncludeDestFull = (Get-Item $IncludeDest).FullName
 Get-ChildItem -Path $IncludeDest -Recurse -Filter "*.h" | ForEach-Object {
+    $RelativeDir = $_.DirectoryName.Substring($IncludeDestFull.Length).Trim('\', '/')
+    $Prefix = ""
+    if ($RelativeDir -ne "") {
+        $Depth = ($RelativeDir -split '[\\/]').Count
+        $Prefix = "../" * $Depth
+    }
     $HeaderText = [System.IO.File]::ReadAllText($_.FullName)
-    $HeaderText = $HeaderText.Replace('#include "cvlib/', '#include "')
+    $HeaderText = $HeaderText.Replace('#include "cvlib/', "#include `"$Prefix")
     [System.IO.File]::WriteAllText($_.FullName, $HeaderText, $Utf8NoBom)
 }
 
