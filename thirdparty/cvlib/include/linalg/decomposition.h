@@ -3,8 +3,8 @@
 #ifndef CVLIB_LINALG_DECOMPOSITION_H_
 #define CVLIB_LINALG_DECOMPOSITION_H_
 
-#include "types.h"
-#include "error_codes.h"
+#include "../types.h"
+#include "../error_codes.h"
 
 #include <cstdint>
 
@@ -71,6 +71,48 @@ Output matches numpy.linalg.eigh / cv::eigen for symmetric matrices.
 ErrorCode eigh(const Matrix* a, Vector* eigenvalues, Matrix* eigenvectors,
                int32_t max_iter = kEighDefaultMaxIter,
                float64_t tol = kEighDefaultTolerance);
+
+/*
+LU decomposition with partial pivoting: P A = L U for a general square
+matrix. L is unit lower triangular, U upper triangular, and perm
+encodes the row permutation (row i of P A is row perm[i] of A).
+
+@param a Input n-by-n matrix.
+@param l Output n-by-n unit lower triangular factor; pre-allocated.
+@param u Output n-by-n upper triangular factor; pre-allocated.
+@param perm Output row permutation, length n.
+@returns ErrorCode (kSingularMatrix when a pivot vanishes).
+*/
+ErrorCode lu(const Matrix* a, Matrix* l, Matrix* u, int32_t* perm);
+
+/*
+Solves A x = b from the lu() factors by permuted forward and back
+substitution.
+
+@param l Unit lower triangular factor from lu().
+@param u Upper triangular factor from lu().
+@param perm Row permutation from lu(), length n.
+@param b Right-hand side, length n.
+@param x Output solution, length n; pre-allocated.
+@returns ErrorCode (kSingularMatrix on a zero diagonal in u).
+*/
+ErrorCode lu_solve(const Matrix* l, const Matrix* u, const int32_t* perm,
+                   const Vector* b, Vector* x);
+
+/*
+Projects a symmetric matrix onto the nearest symmetric
+positive-(semi)definite matrix in the Frobenius norm: symmetrize,
+eigendecompose, clamp eigenvalues to min_eigenvalue, and recompose.
+Use to recondition covariances that drift in long-running filters.
+
+@param a Input n-by-n matrix (auto-symmetrized).
+@param min_eigenvalue Eigenvalue floor (>= 0); 0 yields the PSD
+       projection, a positive floor yields strict SPD.
+@param result Output n-by-n symmetric matrix; pre-allocated.
+@returns ErrorCode.
+*/
+ErrorCode nearest_spd(const Matrix* a, float64_t min_eigenvalue,
+                      Matrix* result);
 
 }  // namespace linalg
 }  // namespace cvlib

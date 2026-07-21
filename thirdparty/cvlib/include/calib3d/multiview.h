@@ -1,11 +1,12 @@
-// Multi-view geometry: triangulation, epipolar, homography, rigid alignment.
+// Two-view geometry: triangulation, epipolar relations, homography.
+// 3D-3D point-set alignment lives in calib3d/alignment.h.
 
 #ifndef CVLIB_CALIB3D_MULTIVIEW_H_
 #define CVLIB_CALIB3D_MULTIVIEW_H_
 
-#include "types.h"
-#include "error_codes.h"
-#include "ransac_params.h"
+#include "../types.h"
+#include "../error_codes.h"
+#include "../ransac_params.h"
 
 #include <cstdint>
 
@@ -121,18 +122,6 @@ externally to pick the right one.
 ErrorCode decompose_homography(const Matrix* h, const Matrix* k,
                                Matrix* r_candidates, Matrix* t_candidates,
                                Matrix* n_candidates, int32_t* num_solutions);
-
-/*
-Computes rigid transform (Kabsch) that aligns src to dst: dst ~= R src + t.
-
-@param src Source 3D points, N-by-3.
-@param dst Destination 3D points, N-by-3.
-@param r_out Output 3-by-3 rotation.
-@param t_out Output translation, length 3.
-@returns ErrorCode.
-*/
-ErrorCode rigid_transform_3d(const Matrix* src, const Matrix* dst,
-                             Matrix* r_out, Vector* t_out);
 
 /*
 RANSAC homography estimator. Refits the consensus inlier set with the

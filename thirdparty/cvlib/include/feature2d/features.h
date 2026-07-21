@@ -3,8 +3,9 @@
 #ifndef CVLIB_FEATURE2D_FEATURES_H_
 #define CVLIB_FEATURE2D_FEATURES_H_
 
-#include "error_codes.h"
-#include "defs.h"
+#include "../error_codes.h"
+#include "../types.h"
+#include "../defs.h"
 
 #include <cstdint>
 #include <vector>
@@ -166,6 +167,60 @@ Returns OpenCV-compatible GoodFeaturesToTrack defaults.
 @returns GoodFeaturesToTrackParameters.
 */
 GoodFeaturesToTrackParameters good_features_to_track_default_parameters();
+
+// Segment-test corner detection parameters.
+//
+// A pixel is a corner when at least arc_length contiguous samples on
+// its radius-3 circle of 16 are all brighter than center + threshold
+// or all darker than center - threshold. The response is the sum of
+// the sample differences beyond the threshold; optional non-maximum
+// suppression keeps 3x3 response maxima only.
+
+struct FastParameters {
+    float64_t threshold = 20.0;
+    int32_t arc_length = 9;         // 9..16 contiguous circle samples
+    bool nonmax_suppression = true;
+};
+
+/*
+Returns segment-test corner detection defaults.
+
+@returns FastParameters.
+*/
+FastParameters fast_default_parameters();
+
+/*
+Detects segment-test corners.
+
+@param image Input grayscale view.
+@param mask Optional detection mask; null allows every pixel.
+@param parameters Detector parameters; null uses defaults.
+@param keypoints Output corners ordered by row-major position.
+@returns ErrorCode.
+*/
+ErrorCode fast_detect(const FeatureImageView* image,
+                      const FeatureMaskView* mask,
+                      const FastParameters* parameters,
+                      std::vector<Keypoint>* keypoints);
+
+/*
+Refines corner locations to subpixel accuracy by iterating the
+gradient orthogonality condition: at a corner q, every window sample p
+satisfies grad(p) . (p - q) = 0 in the least-squares sense. Corners in
+ill-conditioned (flat or one-dimensional) neighbourhoods or leaving
+the image keep their input position.
+
+@param image Input grayscale view.
+@param corners Corner positions, N-by-2 pixels; refined in place.
+@param window Odd search window size (>= 3).
+@param max_iterations Iteration cap (> 0).
+@param epsilon Convergence threshold in pixels (> 0).
+@returns ErrorCode.
+*/
+ErrorCode refine_corners_subpixel(const FeatureImageView* image,
+                                  Matrix* corners, int32_t window,
+                                  int32_t max_iterations,
+                                  float64_t epsilon);
 
 /*
 Finds strong image corners using OpenCV-compatible goodFeaturesToTrack logic.

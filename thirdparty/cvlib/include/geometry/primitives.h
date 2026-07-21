@@ -3,8 +3,8 @@
 #ifndef CVLIB_GEOMETRY_PRIMITIVES_H_
 #define CVLIB_GEOMETRY_PRIMITIVES_H_
 
-#include "types.h"
-#include "error_codes.h"
+#include "../types.h"
+#include "../error_codes.h"
 
 namespace cvlib {
 namespace geometry {
@@ -63,6 +63,61 @@ lies behind the origin.
 */
 ErrorCode ray_plane_intersection(const Vector* origin, const Vector* direction,
                                  const Vector* plane, Vector* point_out);
+
+/*
+Distance from a point to a line segment (2D or 3D): the distance to the
+closest point on [seg_start, seg_end], including the endpoints. A
+zero-length segment degrades to point-to-point distance.
+
+@param point Query point, length 2 or 3.
+@param seg_start Segment start, same length as point.
+@param seg_end Segment end, same length as point.
+@param distance_out Output distance (>= 0).
+@returns ErrorCode.
+*/
+ErrorCode point_to_segment_distance(const Vector* point,
+                                    const Vector* seg_start,
+                                    const Vector* seg_end,
+                                    float64_t* distance_out);
+
+/*
+Intersection of two 2D line segments, endpoints inclusive. Parallel and
+collinear pairs report no intersection (the overlap of collinear
+segments is not a unique point).
+
+@param a_start First segment start, length 2.
+@param a_end First segment end, length 2.
+@param b_start Second segment start, length 2.
+@param b_end Second segment end, length 2.
+@param point_out Output intersection point, length 2 (valid when
+       *intersects is true; zeroed otherwise).
+@param intersects Output flag.
+@returns ErrorCode.
+*/
+ErrorCode segment_segment_intersection(const Vector* a_start,
+                                       const Vector* a_end,
+                                       const Vector* b_start,
+                                       const Vector* b_end,
+                                       Vector* point_out,
+                                       bool* intersects);
+
+/*
+Closest points between two 3D lines p = p1 + s d1 and q = p2 + t d2.
+For parallel lines the pair is anchored at p1 (s = 0) with q the
+projection of p1 onto the second line.
+
+@param p1 Point on the first line, length 3.
+@param d1 First direction, length 3 (nonzero).
+@param p2 Point on the second line, length 3.
+@param d2 Second direction, length 3 (nonzero).
+@param point1_out Output closest point on the first line, length 3.
+@param point2_out Output closest point on the second line, length 3.
+@returns ErrorCode.
+*/
+ErrorCode closest_points_between_lines(const Vector* p1, const Vector* d1,
+                                       const Vector* p2, const Vector* d2,
+                                       Vector* point1_out,
+                                       Vector* point2_out);
 
 }  // namespace geometry
 }  // namespace cvlib

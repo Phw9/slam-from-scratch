@@ -3,8 +3,8 @@
 #ifndef CVLIB_FEATURE2D_MATCHING_H_
 #define CVLIB_FEATURE2D_MATCHING_H_
 
-#include "error_codes.h"
-#include "defs.h"
+#include "../error_codes.h"
+#include "../defs.h"
 
 #include <cstdint>
 #include <vector>

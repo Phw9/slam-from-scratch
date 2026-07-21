@@ -3,9 +3,9 @@
 #ifndef CVLIB_LINALG_SVD_H_
 #define CVLIB_LINALG_SVD_H_
 
-#include "types.h"
-#include "defs.h"
-#include "error_codes.h"
+#include "../types.h"
+#include "../defs.h"
+#include "../error_codes.h"
 
 #include <cstdint>
 
@@ -42,6 +42,17 @@ ErrorCode svd(const Matrix* a, Matrix* s,
               Matrix* u = nullptr, Matrix* vt = nullptr,
               int32_t max_iter = kSvdMaxIterations,
               float64_t tol = kSvdDefaultTolerance);
+
+/*
+Spectral condition number: the ratio of the largest to the smallest
+singular value of a.
+
+@param a Input matrix, m-by-n.
+@param result Output condition number (>= 1 for nonzero matrices).
+@returns ErrorCode (kSingularMatrix when the smallest singular value
+  is not positive).
+*/
+ErrorCode cond(const Matrix* a, float64_t* result);
 
 }  // namespace linalg
 }  // namespace cvlib

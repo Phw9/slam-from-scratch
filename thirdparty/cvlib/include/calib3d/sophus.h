@@ -3,8 +3,8 @@
 #ifndef CVLIB_CALIB3D_SOPHUS_H_
 #define CVLIB_CALIB3D_SOPHUS_H_
 
-#include "types.h"
-#include "error_codes.h"
+#include "../types.h"
+#include "../error_codes.h"
 
 #include <cstdint>
 
@@ -94,6 +94,52 @@ Computes the adjoint representation Ad(T) (6-by-6) for T in SE(3).
 @returns ErrorCode.
 */
 ErrorCode adj_se3(const Matrix* transformation, Matrix* result);
+
+/*
+Computes the Sim(3) exponential: 7-vector [rho; phi; sigma] to the
+4-by-4 similarity transform [[s R, t], [0, 1]] with s = exp(sigma),
+R = so3_exp(phi), and t coupling rho to both rotation and scale.
+
+@param xi Input tangent vector, length 7.
+@param result Output 4-by-4 similarity transform; must be pre-allocated.
+@returns ErrorCode.
+*/
+ErrorCode sim3_exp(const Vector* xi, Matrix* result);
+
+/*
+Computes the Sim(3) logarithm: 4-by-4 similarity transform to the
+7-vector [rho; phi; sigma]. The scale is recovered from the determinant
+of the upper-left block, which must be positive.
+
+@param transformation Input 4-by-4 similarity transform.
+@param result Output tangent vector, length 7.
+@returns ErrorCode.
+*/
+ErrorCode sim3_log(const Matrix* transformation, Vector* result);
+
+/*
+Left (world-frame) 7-DOF perturbation: T_new = sim3_exp(delta) * T.
+result may alias transformation.
+
+@param transformation Input 4-by-4 similarity transform.
+@param delta Tangent perturbation, length 7.
+@param result Output 4-by-4 similarity transform; must be pre-allocated.
+@returns ErrorCode.
+*/
+ErrorCode sim3_plus_left(const Matrix* transformation, const Vector* delta,
+                         Matrix* result);
+
+/*
+Right (body-frame) 7-DOF perturbation: T_new = T * sim3_exp(delta).
+result may alias transformation.
+
+@param transformation Input 4-by-4 similarity transform.
+@param delta Tangent perturbation, length 7.
+@param result Output 4-by-4 similarity transform; must be pre-allocated.
+@returns ErrorCode.
+*/
+ErrorCode sim3_plus_right(const Matrix* transformation, const Vector* delta,
+                          Matrix* result);
 
 /*
 Interpolates two SO(3) rotations with geodesic interpolation.

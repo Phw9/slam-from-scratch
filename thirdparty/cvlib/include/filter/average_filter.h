@@ -3,8 +3,8 @@
 #ifndef CVLIB_FILTER_AVERAGE_FILTER_H_
 #define CVLIB_FILTER_AVERAGE_FILTER_H_
 
-#include "types.h"
-#include "error_codes.h"
+#include "../types.h"
+#include "../error_codes.h"
 
 #include <cstdint>
 

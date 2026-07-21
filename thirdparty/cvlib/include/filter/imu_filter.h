@@ -3,10 +3,10 @@
 #ifndef CVLIB_FILTER_IMU_FILTER_H_
 #define CVLIB_FILTER_IMU_FILTER_H_
 
-#include "filter/iekf.h"
-#include "filter/states.h"
-#include "types.h"
-#include "error_codes.h"
+#include "../filter/iekf.h"
+#include "../filter/states.h"
+#include "../types.h"
+#include "../error_codes.h"
 
 namespace cvlib {
 namespace filter {

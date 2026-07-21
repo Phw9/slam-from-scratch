@@ -3,9 +3,9 @@
 #ifndef CVLIB_CALIB3D_BUNDLE_ADJUSTMENT_H_
 #define CVLIB_CALIB3D_BUNDLE_ADJUSTMENT_H_
 
-#include "types.h"
-#include "error_codes.h"
-#include "optimize/lm.h"
+#include "../types.h"
+#include "../error_codes.h"
+#include "../optimize/lm.h"
 
 #include <cstdint>
 
@@ -59,11 +59,26 @@ static constexpr int32_t kBAJacobianAnalytic = 0;
 static constexpr int32_t kBAJacobianAutodiff = 1;
 
 // Solver options for bundle_adjustment.
+//
+// min_camera_observations guards against underdetermined camera blocks:
+// a free camera whose observation count (mono + stereo) falls below the
+// floor makes its 6x6 normal-equation block (near-)singular and the
+// solver would silently return garbage, so such problems are rejected
+// with kInvalidDimension before solving. Cameras held by
+// fixed_pose_count are exempt. The check is opt-in: the default of 0
+// disables it, and 3 is the recommended floor for free 6-DOF cameras.
+//
+// fixed_pose_count holds the leading N poses exactly fixed (their
+// Jacobian blocks are dropped and the manifold update skips them),
+// which also anchors the gauge: with N >= 1 the optimized solution is
+// expressed relative to the fixed pose instead of drifting freely.
 
 struct BAOptions {
     int32_t              perturb_mode;
     int32_t              solver;         // kBASolverDense | kBASolverSchur
     int32_t              jacobian_mode;  // kBAJacobianAnalytic | kBAJacobianAutodiff
+    int32_t              min_camera_observations;  // 0 disables the floor
+    int32_t              fixed_pose_count;         // leading poses held fixed
     optimize::LMOptions  lm;
 };
 

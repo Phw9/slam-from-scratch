@@ -3,8 +3,8 @@
 #ifndef CVLIB_GEOMETRY_POLYGON_H_
 #define CVLIB_GEOMETRY_POLYGON_H_
 
-#include "types.h"
-#include "error_codes.h"
+#include "../types.h"
+#include "../error_codes.h"
 
 namespace cvlib {
 namespace geometry {
@@ -94,6 +94,29 @@ must be convex with vertices in CCW order and positive area.
 */
 ErrorCode convex_polygon_iou(const Matrix* poly_a, const Matrix* poly_b,
                              float64_t* iou);
+
+/*
+Minimum-area enclosing rectangle of a 2D point set via rotating an
+edge-aligned bounding box over the convex hull.
+
+@param points Input points, N-by-2 (N >= 3, not all collinear).
+@param corners Output rectangle corners in order, 4-by-2;
+       pre-allocated.
+@returns ErrorCode (kSingularMatrix for degenerate hulls).
+*/
+ErrorCode min_area_rect(const Matrix* points, Matrix* corners);
+
+/*
+Minimum enclosing circle of a 2D point set (exact, deterministic
+incremental construction over the fixed input order).
+
+@param points Input points, N-by-2 (N >= 1).
+@param center_out Output circle center, length 2.
+@param radius_out Output radius (>= 0).
+@returns ErrorCode.
+*/
+ErrorCode min_enclosing_circle(const Matrix* points, Vector* center_out,
+                               float64_t* radius_out);
 
 }  // namespace geometry
 }  // namespace cvlib

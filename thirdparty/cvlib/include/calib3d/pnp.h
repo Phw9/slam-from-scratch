@@ -3,10 +3,10 @@
 #ifndef CVLIB_CALIB3D_PNP_H_
 #define CVLIB_CALIB3D_PNP_H_
 
-#include "types.h"
-#include "error_codes.h"
-#include "calib3d/multiview.h"
-#include "optimize/lm.h"
+#include "../types.h"
+#include "../error_codes.h"
+#include "../calib3d/multiview.h"
+#include "../optimize/lm.h"
 
 #include <cstdint>
 
@@ -14,6 +14,7 @@ namespace cvlib {
 namespace calib3d {
 
 static constexpr int32_t kPnpMinPoints = 6;
+static constexpr int32_t kPnpStereoMinRefinePoints = 2;
 
 // Options for solve_pnp.
 struct SolvePnpOptions {
@@ -94,6 +95,39 @@ ErrorCode solve_pnp_ransac(const Matrix* world_pts, const Matrix* image_pts,
                            Matrix* r_out, Vector* t_out,
                            int32_t* inlier_mask, int32_t* num_inliers,
                            const Vector* dist_coeff = nullptr,
+                           const SolvePnpOptions* options = nullptr,
+                           optimize::OptimizeReport* report = nullptr);
+
+/*
+Stereo PnP: pose estimation from rectified stereo observations with the
+3-row residual (u_left, v, u_right) per point. The right camera sits at
++baseline along the left camera x-axis, so the third residual row
+u_right = u_left - fx * baseline / z pins the depth metrically from a
+single frame. Rectified pixels are undistorted, so there is no
+distortion input. Jacobians propagate SE(3)-tangent dual numbers
+through the same reprojection functor as the bundle-adjustment stereo
+rows. Auto-initializes with mono DLT on the (u_left, v) columns when no
+initial pose is supplied (requires N >= 6); with an initial pose,
+N >= 2 points already overdetermine the 6-DOF refinement.
+Outputs use world-to-camera extrinsics for the left camera.
+
+@param world_pts N-by-3 world points.
+@param image_pts N-by-3 stereo observations [u_left, v, u_right].
+@param k Camera intrinsics (3x3).
+@param baseline Stereo baseline (> 0), same unit as world_pts.
+@param r_out Output rotation (3x3, must be allocated).
+@param t_out Output translation (length 3, must be allocated).
+@param r_init Optional initial rotation; null triggers DLT initialization.
+@param t_init Optional initial translation; null triggers DLT initialization.
+@param options Optional solver options; null uses defaults.
+@param report Optional output optimization report; may be null.
+@returns ErrorCode.
+*/
+ErrorCode solve_pnp_stereo(const Matrix* world_pts, const Matrix* image_pts,
+                           const Matrix* k, float64_t baseline,
+                           Matrix* r_out, Vector* t_out,
+                           const Matrix* r_init = nullptr,
+                           const Vector* t_init = nullptr,
                            const SolvePnpOptions* options = nullptr,
                            optimize::OptimizeReport* report = nullptr);
 

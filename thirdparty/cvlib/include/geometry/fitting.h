@@ -3,9 +3,9 @@
 #ifndef CVLIB_GEOMETRY_FITTING_H_
 #define CVLIB_GEOMETRY_FITTING_H_
 
-#include "types.h"
-#include "error_codes.h"
-#include "ransac_params.h"
+#include "../types.h"
+#include "../error_codes.h"
+#include "../ransac_params.h"
 
 #include <cstdint>
 
@@ -109,6 +109,18 @@ RANSAC 2D line fitting: returns the consensus line and inlier mask.
 ErrorCode fit_line_ransac(const Matrix* points, RansacParams params,
                           Vector* line_out, int32_t* inlier_mask,
                           int32_t* num_inliers);
+
+/*
+Fits a sphere with the algebraic least-squares linearization of
+|x - c|^2 = r^2.
+
+@param points Input points, N-by-3 (N >= 4, not coplanar).
+@param center_out Output sphere center, length 3.
+@param radius_out Output radius (> 0).
+@returns ErrorCode (kSingularMatrix for degenerate point sets).
+*/
+ErrorCode fit_sphere(const Matrix* points, Vector* center_out,
+                     float64_t* radius_out);
 
 }  // namespace geometry
 }  // namespace cvlib

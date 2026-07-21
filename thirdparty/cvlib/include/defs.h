@@ -52,6 +52,7 @@ static constexpr float64_t kPositiveDepthEpsilon = 1e-9;
 
 static constexpr int32_t   kSe3VectorSize               = 6;
 static constexpr int32_t   kSo3VectorSize               = 3;
+static constexpr int32_t   kSim3VectorSize              = 7;
 static constexpr float64_t kIdentityRotationThreshold    = 1e-8;
 static constexpr float64_t kSmallAngleThreshold          = 1e-8;
 static constexpr float64_t kPiRotationThreshold          = 1e-8;

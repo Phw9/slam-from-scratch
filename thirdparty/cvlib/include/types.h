@@ -528,16 +528,20 @@ inline Complex complex_conj(Complex c) {
 
 // Returns the principal square root of c.
 inline Complex complex_sqrt(Complex c) {
+    Complex result;
     const float64_t r = complex_abs(c);
     if (r < 1e-15) {
-        return complex_make(0.0, 0.0);
+        result = complex_make(0.0, 0.0);
+    } else {
+        const float64_t t = std::sqrt((std::fabs(c.real) + r) * 0.5);
+        if (c.real >= 0.0) {
+            result = complex_make(t, c.imag / (2.0 * t));
+        } else {
+            result = complex_make(std::fabs(c.imag) / (2.0 * t),
+                                  (c.imag >= 0.0) ? t : -t);
+        }
     }
-    const float64_t t = std::sqrt((std::fabs(c.real) + r) * 0.5);
-    if (c.real >= 0.0) {
-        return complex_make(t, c.imag / (2.0 * t));
-    }
-    return complex_make(std::fabs(c.imag) / (2.0 * t),
-                        (c.imag >= 0.0) ? t : -t);
+    return result;
 }
 
 // Complex matrices.

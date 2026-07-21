@@ -3,8 +3,8 @@
 #ifndef CVLIB_CALIB3D_ROTATION_H_
 #define CVLIB_CALIB3D_ROTATION_H_
 
-#include "types.h"
-#include "error_codes.h"
+#include "../types.h"
+#include "../error_codes.h"
 
 #include <cstdint>
 
@@ -165,6 +165,30 @@ Converts roll-pitch-yaw angles to a rotation matrix (inverse of mat2rpy).
 */
 ErrorCode rpy2mat(const Vector* angles, Matrix* result,
                   int32_t sequence = kSequenceZYX, bool degree = false);
+
+/*
+Projects a 3-by-3 matrix onto the nearest rotation in the Frobenius
+norm: the orthogonal polar factor from the SVD, with the smallest
+singular direction sign-flipped when needed so the result is a proper
+rotation (det = +1). Use to clean up numerically drifted rotations.
+In-place operation (r_out == m) is supported.
+
+@param m Input 3-by-3 matrix (finite entries).
+@param r_out Output 3-by-3 rotation; must be pre-allocated.
+@returns ErrorCode.
+*/
+ErrorCode project_to_so3(const Matrix* m, Matrix* r_out);
+
+/*
+Computes the Frobenius-norm distance between m and its projection onto
+the rotation group: a single drift measure that combines orthonormality
+and determinant error.
+
+@param m Input 3-by-3 matrix (finite entries).
+@param error_out Output distance (>= 0).
+@returns ErrorCode.
+*/
+ErrorCode so3_projection_error(const Matrix* m, float64_t* error_out);
 
 /*
 Converts a rotation matrix to a Rodrigues vector (SO(3) logarithm).
