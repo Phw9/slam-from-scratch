@@ -53,6 +53,35 @@ ErrorCode ik(const Matrix* dh_params, const Matrix* target_pose,
              float64_t tol = kIkDefaultTol);
 
 /*
+Computes the manipulability measure w = sqrt(det(J * J^T)).
+
+The measure approaches zero as the configuration approaches a task
+singularity; use it to monitor or avoid singular regions.
+
+@param jacobian Task Jacobian from jac(), m-by-n.
+@param w_out Output measure (>= 0).
+@returns ErrorCode.
+
+*/
+
+ErrorCode manipulability(const Matrix* jacobian, float64_t* w_out);
+
+/*
+Computes the nullspace projector N = I - pinv(J) * J.
+
+Joint velocities multiplied by N produce no task-space motion; add
+N * qdot_secondary to an IK velocity to run a secondary objective
+(joint centering, limit avoidance) on a redundant chain.
+
+@param jacobian Task Jacobian from jac(), m-by-n.
+@param n_out Output projector, n-by-n; must be pre-allocated.
+@returns ErrorCode.
+
+*/
+
+ErrorCode nullspace_projector(const Matrix* jacobian, Matrix* n_out);
+
+/*
 Closed-form IK for a planar 2R arm with given link lengths.
 
 @param a1 First link length.

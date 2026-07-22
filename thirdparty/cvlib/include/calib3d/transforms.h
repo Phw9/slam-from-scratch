@@ -13,6 +13,7 @@ namespace cvlib {
 namespace calib3d {
 
 static constexpr int32_t kDof6Size = 6;
+static constexpr int32_t kDof7Size = 7;
 
 /*
 Applies R p + t to each row of points (3D points in rows).
@@ -248,6 +249,28 @@ Decomposes a 4-by-4 transform into translation + Rodrigues rotation.
 */
 
 ErrorCode mat2rod6(const Matrix* transform, Vector* result);
+
+/*
+Builds a 4-by-4 transform from translation + quaternion (7-DOF).
+
+@param dof7 Input [tx, ty, tz, qw, qx, qy, qz], length 7.
+@param result Output 4-by-4; must be pre-allocated.
+@returns ErrorCode.
+
+*/
+
+ErrorCode quat72mat(const Vector* dof7, Matrix* result);
+
+/*
+Decomposes a 4-by-4 transform into translation + quaternion (7-DOF).
+
+@param transform Input 4-by-4.
+@param result Output [tx, ty, tz, qw, qx, qy, qz], length 7.
+@returns ErrorCode.
+
+*/
+
+ErrorCode mat2quat7(const Matrix* transform, Vector* result);
 
 }  // namespace calib3d
 }  // namespace cvlib

@@ -170,6 +170,27 @@ ErrorCode bev_homography(const Matrix* k, const Vector* ground_plane,
                          float64_t y_min, float64_t y_max,
                          float64_t resolution, Matrix* h_out);
 
+/*
+Builds the camera-to-vehicle rigid transform from the camera-frame
+ground plane: p_vehicle = R * p_camera + t.
+
+The vehicle frame shares the BEV ground frame: origin on the ground
+directly beneath the camera center, x forward (optical axis projected
+onto the plane), y left, z up (plane normal toward the camera), so the
+camera center lands at (0, 0, height). The plane observes roll, pitch,
+and height only; vehicle yaw and the lateral/longitudinal offsets are
+fixed by this convention and are applied by the caller if the camera
+is mounted off the vehicle reference point. Cameras on the plane or
+looking along the plane normal are rejected with kInvalidArgument.
+
+@param ground_plane Plane [a, b, c, d] in the camera frame, length 4
+       (either orientation, e.g. from fit_ground_plane).
+@param t_out Output camera-to-vehicle transform (4x4).
+@returns ErrorCode.
+*/
+ErrorCode camera_to_vehicle_transform(const Vector* ground_plane,
+                                      Matrix* t_out);
+
 }  // namespace calib3d
 }  // namespace cvlib
 

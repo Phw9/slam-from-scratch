@@ -4,7 +4,6 @@
 
 #include <calib3d/bundle_adjustment.h>
 #include <calib3d/multiview.h>
-#include <calib3d/se3_manifold.h>
 #include <calib3d/sophus.h>
 #include <calib3d/transforms.h>
 #include <linalg/linalg.h>
