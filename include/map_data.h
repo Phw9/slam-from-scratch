@@ -23,6 +23,10 @@ MapPoint make_pending_map_point(const cv::Point2f& observation,
                                 int32_t frame_id,
                                 const MappingParameters& parameters);
 int32_t count_positioned_map_points(const std::vector<MapPoint>& map_points);
+void archive_observation(MapArchive* archive,
+                         const MapObservation& observation);
+void archive_stereo_observation(MapArchive* archive,
+                                const StereoObservation& observation);
 std::vector<cv::Point3f> map_point_positions(
     const std::vector<MapPoint>& map_points);
 int32_t add_pending_feature_tracks(const cv::Mat& image,

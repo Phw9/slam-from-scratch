@@ -102,6 +102,20 @@ int32_t count_positioned_map_points(const std::vector<MapPoint>& map_points) {
     return count;
 }
 
+void archive_observation(MapArchive* archive,
+                         const MapObservation& observation) {
+    archive->observations_by_frame[observation.frame_id].push_back(
+        static_cast<int32_t>(archive->observations.size()));
+    archive->observations.push_back(observation);
+}
+
+void archive_stereo_observation(MapArchive* archive,
+                                const StereoObservation& observation) {
+    archive->stereo_observations_by_frame[observation.frame_id].push_back(
+        static_cast<int32_t>(archive->stereo_observations.size()));
+    archive->stereo_observations.push_back(observation);
+}
+
 std::vector<cv::Point3f> map_point_positions(
     const std::vector<MapPoint>& map_points) {
     std::vector<cv::Point3f> positions;

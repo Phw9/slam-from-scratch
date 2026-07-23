@@ -162,11 +162,24 @@ bool build_stereo_ba_problem(const MapArchive& archive,
                              bool retriangulate_seeds,
                              bool use_stereo_rows,
                              StereoBaProblem* problem) {
+    // Ascending frame order matches the append order of the archive, so the
+    // per-point index lists come out identical to a full archive scan.
+    std::vector<int32_t> window_frames;
+    window_frames.reserve(frame_row.size());
+    for (const auto& entry : frame_row) {
+        window_frames.push_back(entry.first);
+    }
+    std::sort(window_frames.begin(), window_frames.end());
     std::unordered_map<int32_t, std::vector<std::size_t>> groups;
-    for (std::size_t i = 0; i < archive.observations.size(); ++i) {
-        const MapObservation& obs = archive.observations[i];
-        if (frame_row.find(obs.frame_id) != frame_row.end()) {
-            groups[obs.point_id].push_back(i);
+    for (const int32_t frame_id : window_frames) {
+        const auto frame_it = archive.observations_by_frame.find(frame_id);
+        if (frame_it == archive.observations_by_frame.end()) {
+            continue;
+        }
+        for (const int32_t i : frame_it->second) {
+            groups[archive.observations[static_cast<std::size_t>(i)]
+                       .point_id]
+                .push_back(static_cast<std::size_t>(i));
         }
     }
     std::vector<std::pair<int32_t, int32_t>> eligible;
@@ -202,9 +215,15 @@ bool build_stereo_ba_problem(const MapArchive& archive,
         std::vector<CandidateObservation> observations;
     };
     std::unordered_map<int64_t, double> right_lookup;
-    for (const StereoObservation& stereo_obs :
-         archive.stereo_observations) {
-        if (frame_row.find(stereo_obs.frame_id) != frame_row.end()) {
+    for (const int32_t frame_id : window_frames) {
+        const auto frame_it =
+            archive.stereo_observations_by_frame.find(frame_id);
+        if (frame_it == archive.stereo_observations_by_frame.end()) {
+            continue;
+        }
+        for (const int32_t i : frame_it->second) {
+            const StereoObservation& stereo_obs =
+                archive.stereo_observations[static_cast<std::size_t>(i)];
             right_lookup[stereo_lookup_key(stereo_obs.point_id,
                                            stereo_obs.frame_id)] =
                 static_cast<double>(stereo_obs.right_x);
@@ -592,11 +611,10 @@ int32_t triangulate_stereo_map_points(
                           parameters.mapping.candidate_min_track_length;
         all_map_points->push_back(world_point);
         if (archive != nullptr && point.id >= 0) {
-            archive->observations.push_back(
-                {frame_id, point.id, pixel_left});
-            archive->stereo_observations.push_back(
-                {frame_id, point.id, pixel_left,
-                 static_cast<float>(pixel_right.x)});
+            archive_observation(archive, {frame_id, point.id, pixel_left});
+            archive_stereo_observation(
+                archive, {frame_id, point.id, pixel_left,
+                          static_cast<float>(pixel_right.x)});
             archive->positions[point.id] = world_point;
             archive->last_seen[point.id] = frame_id;
         }

@@ -68,6 +68,11 @@ struct StereoObservation {
 struct MapArchive {
     std::vector<MapObservation> observations;
     std::vector<StereoObservation> stereo_observations;
+    // Indices into the vectors above keyed by frame, so windowed BA can
+    // gather a few frames without scanning the whole archive.
+    std::unordered_map<int32_t, std::vector<int32_t>> observations_by_frame;
+    std::unordered_map<int32_t, std::vector<int32_t>>
+        stereo_observations_by_frame;
     std::unordered_map<int32_t, cv::Point3f> positions;
     std::unordered_map<int32_t, int32_t> last_seen;
 };

@@ -232,8 +232,8 @@ void retain_pnp_inlier_tracks(const AppConfig& config, int32_t frame_id,
                 update_tracked_map_point(&point, frame_id, residual,
                                          config.parameters.mapping);
                 if (point.id >= 0) {
-                    archive->observations.push_back(
-                        {frame_id, point.id, observation});
+                    archive_observation(archive,
+                                        {frame_id, point.id, observation});
                     archive->positions[point.id] = point.position;
                     archive->last_seen[point.id] = frame_id;
                 }
