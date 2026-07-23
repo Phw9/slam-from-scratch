@@ -366,6 +366,8 @@ bool load_visualization_parameters(const std::filesystem::path& path,
                              &parameters->loop_edge_radius);
         read_float_parameter(node, "optimized_trajectory_radius",
                              &parameters->optimized_trajectory_radius);
+        read_int_parameter(node, "log_chunk_size",
+                           &parameters->log_chunk_size);
         ok = true;
     }
     return ok;
@@ -554,6 +556,8 @@ void sanitize_parameters(MvoParameters* parameters) {
         std::max(1, parameters->stereo.full_ba_max_iterations);
     parameters->stereo.full_ba_loss_scale =
         std::max(0.1, parameters->stereo.full_ba_loss_scale);
+    parameters->visualization.log_chunk_size =
+        std::max(16, parameters->visualization.log_chunk_size);
 }
 
 }  // namespace

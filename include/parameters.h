@@ -148,6 +148,10 @@ struct VisualizationParameters {
     float klt_track_radius = 3.0F;
     float loop_edge_radius = 0.3F;
     float optimized_trajectory_radius = 0.22F;
+    // Growing point sets (trajectory, historical map points) are logged as
+    // closed chunks of this size plus a re-logged head, so per-frame logging
+    // cost stays bounded instead of growing with the sequence.
+    int32_t log_chunk_size = 2048;
 };
 
 struct MvoParameters {

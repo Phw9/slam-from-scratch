@@ -5,6 +5,7 @@
     "trajectory_radius": 0.22,
     "klt_track_radius": 3.0,
     "loop_edge_radius": 0.3,
-    "optimized_trajectory_radius": 0.22
+    "optimized_trajectory_radius": 0.22,
+    "log_chunk_size": 2048
   }
 }

@@ -2,11 +2,11 @@
 
 #include "converter.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <functional>
 #include <iostream>
-#include <unordered_set>
+#include <string>
 #include <vector>
 
 namespace mvo {
@@ -17,39 +17,6 @@ bool visualizer_requested(const AppConfig& config) {
 }
 
 #if MVO_HAS_RERUN
-struct Point3fHash {
-    std::size_t operator()(const cv::Point3f& point) const {
-        const std::hash<float> hasher;
-        std::size_t seed = hasher(point.x + 0.0F);
-        seed ^= hasher(point.y + 0.0F) + 0x9e3779b9U + (seed << 6) +
-                (seed >> 2);
-        seed ^= hasher(point.z + 0.0F) + 0x9e3779b9U + (seed << 6) +
-                (seed >> 2);
-        return seed;
-    }
-};
-
-struct Point3fEqual {
-    bool operator()(const cv::Point3f& a, const cv::Point3f& b) const {
-        return a.x == b.x && a.y == b.y && a.z == b.z;
-    }
-};
-
-void collect_previous_map_points(
-    const std::vector<cv::Point3f>& all_map_points,
-    const std::vector<cv::Point3f>& current_map_points,
-    std::vector<cv::Point3f>* previous_map_points) {
-    previous_map_points->clear();
-    previous_map_points->reserve(all_map_points.size());
-    const std::unordered_set<cv::Point3f, Point3fHash, Point3fEqual>
-        current_set(current_map_points.begin(), current_map_points.end());
-    for (const cv::Point3f& point : all_map_points) {
-        if (current_set.find(point) == current_set.end()) {
-            previous_map_points->push_back(point);
-        }
-    }
-}
-
 std::vector<uint8_t> image_bytes(const cv::Mat& image) {
     cv::Mat continuous = image;
     if (!image.isContinuous()) {
@@ -71,14 +38,52 @@ std::vector<rerun::Position2D> points2d_for_rerun(
     return rerun_points;
 }
 
-std::vector<rerun::Position3D> points3d_for_rerun(
-    const std::vector<cv::Point3f>& points) {
+std::vector<rerun::Position3D> points3d_for_rerun_range(
+    const std::vector<cv::Point3f>& points, std::size_t begin,
+    std::size_t end) {
     std::vector<rerun::Position3D> rerun_points;
-    rerun_points.reserve(points.size());
-    for (const cv::Point3f& point : points) {
-        rerun_points.emplace_back(point.x, point.y, point.z);
+    rerun_points.reserve(end - begin);
+    for (std::size_t i = begin; i < end; ++i) {
+        rerun_points.emplace_back(points[i].x, points[i].y, points[i].z);
     }
     return rerun_points;
+}
+
+std::vector<rerun::Position3D> points3d_for_rerun(
+    const std::vector<cv::Point3f>& points) {
+    return points3d_for_rerun_range(points, 0, points.size());
+}
+
+// Logs a growing point set without re-sending the whole history each frame:
+// full chunks are flushed once into immutable chunk entities that stay
+// visible from their log time onward, and the tail since the last flush is
+// re-logged every frame as the head entity. At any frame the union of the
+// chunks and the head equals the full set as of that frame.
+void log_points_incremental(rerun::RecordingStream* rec,
+                            const std::string& entity_path,
+                            const std::vector<cv::Point3f>& points,
+                            float radius, rerun::Color color,
+                            int32_t chunk_size,
+                            IncrementalLogState* state) {
+    const std::size_t chunk = static_cast<std::size_t>(
+        std::max(1, chunk_size));
+    while (points.size() - state->flushed >= chunk) {
+        rec->log(entity_path + "/chunk_" + std::to_string(state->chunks),
+                 rerun::Points3D(points3d_for_rerun_range(
+                                     points, state->flushed,
+                                     state->flushed + chunk))
+                     .with_radii(radius)
+                     .with_colors(color));
+        state->flushed += chunk;
+        ++state->chunks;
+    }
+    // The head is re-logged even when empty so a fresh chunk flush does not
+    // leave its points duplicated in the previously logged head.
+    rec->log(entity_path + "/head",
+             rerun::Points3D(points3d_for_rerun_range(points, state->flushed,
+                                                      points.size()))
+                 .with_radii(radius)
+                 .with_colors(color));
 }
 #endif
 
@@ -90,6 +95,8 @@ bool initialize_visualizer(const AppConfig& config, Visualizer* visualizer) {
     visualizer->parameters = config.parameters.visualization;
     visualizer->trajectory.clear();
     visualizer->loop_edges.clear();
+    visualizer->trajectory_log = IncrementalLogState();
+    visualizer->map_point_log = IncrementalLogState();
     if (visualizer_requested(config)) {
 #if MVO_HAS_RERUN
         visualizer->rec = std::make_unique<rerun::RecordingStream>("mvo");
@@ -140,18 +147,13 @@ void log_visualization(Visualizer* visualizer, int32_t frame_id,
                                                  .klt_track_radius))
                                      .with_colors(rerun::Color(0, 255, 255)));
         }
-        std::vector<cv::Point3f> previous_map_points;
-        collect_previous_map_points(all_map_points, current_map_points,
-                                    &previous_map_points);
-        if (!previous_map_points.empty()) {
-            visualizer->rec->log("world/previous_map_points",
-                                 rerun::Points3D(
-                                     points3d_for_rerun(previous_map_points))
-                                     .with_radii(
-                                         visualizer->parameters
-                                             .previous_map_point_radius)
-                                     .with_colors(rerun::Color(0, 0, 0)));
-        }
+        log_points_incremental(visualizer->rec.get(),
+                               "world/previous_map_points", all_map_points,
+                               visualizer->parameters
+                                   .previous_map_point_radius,
+                               rerun::Color(0, 0, 0),
+                               visualizer->parameters.log_chunk_size,
+                               &visualizer->map_point_log);
         if (!current_map_points.empty()) {
             visualizer->rec->log("world/current_3d_keypoints",
                                  rerun::Points3D(
@@ -161,16 +163,13 @@ void log_visualization(Visualizer* visualizer, int32_t frame_id,
                                              .current_map_point_radius)
                                      .with_colors(rerun::Color(255, 0, 0)));
         }
-        if (!visualizer->trajectory.empty()) {
-            visualizer->rec->log("world/camera_trajectory",
-                                 rerun::Points3D(
-                                     points3d_for_rerun(
-                                         visualizer->trajectory))
-                                     .with_radii(
-                                         visualizer->parameters
-                                             .trajectory_radius)
-                                     .with_colors(rerun::Color(0, 128, 255)));
-        }
+        log_points_incremental(visualizer->rec.get(),
+                               "world/camera_trajectory",
+                               visualizer->trajectory,
+                               visualizer->parameters.trajectory_radius,
+                               rerun::Color(0, 128, 255),
+                               visualizer->parameters.log_chunk_size,
+                               &visualizer->trajectory_log);
 #else
         (void)frame_id;
         (void)image;
