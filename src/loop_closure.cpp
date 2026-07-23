@@ -10,30 +10,85 @@
 #include <cstddef>
 #include <cstdlib>
 #include <filesystem>
+#include <future>
 #include <iostream>
+#include <thread>
 #include <utility>
 #include <vector>
 
 namespace mvo {
 namespace {
 
+// Below this many keyframes the sequential scan is cheaper than spawning
+// worker threads.
+constexpr std::size_t kParallelScanMinKeyframes = 256;
+
+struct ScanBest {
+    double score = 0.0;
+    std::size_t index = 0;
+    bool found = false;
+};
+
+ScanBest scan_candidate_range(const BowDatabase& db,
+                              const DBoW2::BowVector& bow,
+                              int32_t frame_id,
+                              const LoopClosureParameters& parameters,
+                              std::size_t begin, std::size_t end) {
+    ScanBest best;
+    for (std::size_t i = begin; i < end; ++i) {
+        const LoopKeyframe& keyframe = db.keyframes[i];
+        if (frame_id - keyframe.frame_id > parameters.recent_exclusion) {
+            const double score = db.vocabulary.score(bow, keyframe.bow);
+            if (score > best.score) {
+                best.score = score;
+                best.index = i;
+                best.found = true;
+            }
+        }
+    }
+    return best;
+}
+
+// The per-pair scores are computed exactly as in the sequential scan and the
+// chunk results are reduced in index order with a strict ">", so the winner
+// (first keyframe with the maximal score) is identical to the sequential
+// result regardless of thread scheduling.
 const LoopKeyframe* find_best_candidate(const BowDatabase& db,
                                         const DBoW2::BowVector& bow,
                                         int32_t frame_id,
                                         const LoopClosureParameters& parameters,
                                         double* best_score) {
-    const LoopKeyframe* best = nullptr;
     *best_score = 0.0;
-    for (const LoopKeyframe& keyframe : db.keyframes) {
-        if (frame_id - keyframe.frame_id > parameters.recent_exclusion) {
-            const double score = db.vocabulary.score(bow, keyframe.bow);
-            if (score > *best_score) {
-                *best_score = score;
-                best = &keyframe;
+    const std::size_t total = db.keyframes.size();
+    const std::size_t worker_count = std::min<std::size_t>(
+        std::max(1U, std::thread::hardware_concurrency()),
+        total / (kParallelScanMinKeyframes / 2) + 1);
+    ScanBest best;
+    if (total < kParallelScanMinKeyframes || worker_count < 2) {
+        best = scan_candidate_range(db, bow, frame_id, parameters, 0, total);
+    } else {
+        std::vector<std::future<ScanBest>> futures;
+        futures.reserve(worker_count);
+        const std::size_t chunk = (total + worker_count - 1) / worker_count;
+        for (std::size_t begin = 0; begin < total; begin += chunk) {
+            const std::size_t end = std::min(total, begin + chunk);
+            futures.push_back(std::async(
+                std::launch::async, scan_candidate_range, std::cref(db),
+                std::cref(bow), frame_id, std::cref(parameters), begin,
+                end));
+        }
+        for (std::future<ScanBest>& future : futures) {
+            const ScanBest chunk_best = future.get();
+            if (chunk_best.found && chunk_best.score > best.score) {
+                best = chunk_best;
             }
         }
     }
-    return best;
+    if (!best.found) {
+        return nullptr;
+    }
+    *best_score = best.score;
+    return &db.keyframes[best.index];
 }
 
 // Ratio-test match that keeps the keypoint indices. The indices are what lets
@@ -589,10 +644,12 @@ bool query_and_add_loop(const cv::Mat& image, BowDatabase* db,
                         bool debug_geometry,
                         LoopClosureEvent* closure) {
     bool closed = false;
-    cv::Ptr<cv::ORB> orb = cv::ORB::create(parameters.orb_features);
+    if (db->orb.empty()) {
+        db->orb = cv::ORB::create(parameters.orb_features);
+    }
     std::vector<cv::KeyPoint> keypoints;
     cv::Mat descriptors;
-    orb->detectAndCompute(image, cv::noArray(), keypoints, descriptors);
+    db->orb->detectAndCompute(image, cv::noArray(), keypoints, descriptors);
 
     if (db->vocabulary_loaded && !descriptors.empty()) {
         LoopKeyframe keyframe;

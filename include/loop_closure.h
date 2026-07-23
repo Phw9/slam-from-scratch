@@ -8,6 +8,7 @@
 #include "DBoW2/TemplatedVocabulary.h"
 
 #include <opencv2/core.hpp>
+#include <opencv2/features2d.hpp>
 
 #include <cstdint>
 #include <string>
@@ -65,6 +66,9 @@ struct LoopClosureSite {
 struct BowDatabase {
     OrbVocabulary vocabulary;
     bool vocabulary_loaded = false;
+    // Reused across per-frame queries; recreating the extractor every frame
+    // is pure overhead.
+    cv::Ptr<cv::ORB> orb;
     std::vector<LoopKeyframe> keyframes;
     std::vector<LoopClosureEvent> closures;
     std::vector<LoopClosureSite> closed_sites;
